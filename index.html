@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drydock: Cosmoteer ship editor (beta)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --paper:#E4EBF0; --panel:#F3F6F8; --ink:#1C2A36; --muted:#5B6B78; --line:#B9C7D2;
+  --grid:rgba(40,80,120,.10); --grid-major:rgba(40,80,120,.22); --accent:#1F6FB2; --warn:#A5541C;
+  --hull:#9AA7B2;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --paper:#16222D; --panel:#1D2B38; --ink:#DCE6EE; --muted:#93A5B4; --line:#34475A;
+  --grid:rgba(140,190,230,.07); --grid-major:rgba(140,190,230,.16); --accent:#6DB3EE; --warn:#E39A62; --hull:#6F7E8B;
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --paper:#16222D; --panel:#1D2B38; --ink:#DCE6EE; --muted:#93A5B4; --line:#34475A;
+  --grid:rgba(140,190,230,.07); --grid-major:rgba(140,190,230,.16); --accent:#6DB3EE; --warn:#E39A62; --hull:#6F7E8B;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+h1,h2,.num{font-family:"Chakra Petch","Bahnschrift","Arial Narrow",sans-serif;font-weight:600;letter-spacing:.01em}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{margin:0;font-size:22px}
+header h1 small{font:400 13px "IBM Plex Sans",sans-serif;color:var(--muted);margin-left:8px}
+.beta{display:inline-block;font:700 10.5px "Chakra Petch","Arial Narrow",sans-serif;letter-spacing:.1em;color:#E0882A;border:1.5px solid #E0882A;border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:super;transform:rotate(-8deg) translateY(-2px);line-height:1.5}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+button,.filebtn{font:500 14px "IBM Plex Sans",sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover,.filebtn:hover{border-color:var(--accent)}
+button:focus-visible,.filebtn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .primary{color:#0D1A24}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .primary{color:#0D1A24}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.filebtn input{display:none}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+#stage{position:relative;min-height:320px;overflow:hidden;cursor:grab}
+#stage.drag{cursor:grabbing}
+#stage.dropping::after{content:"Drop the .ship.png to open it";position:absolute;inset:16px;border:2px dashed var(--accent);border-radius:10px;display:grid;place-items:center;font:600 18px "Chakra Petch",sans-serif;color:var(--accent);background:color-mix(in srgb,var(--paper) 80%,transparent)}
+canvas{display:block;width:100%;height:100%}
+#empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted);pointer-events:none}
+#empty strong{display:block;font:600 20px "Chakra Petch",sans-serif;color:var(--ink);margin-bottom:6px}
+#tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:13px;line-height:1.35;display:none;max-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+#tip b{font-weight:600}
+aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:16px 18px 24px}
+aside h2{font-size:20px;margin:0 0 2px;overflow-wrap:anywhere}
+.by{color:var(--muted);font-size:13px;margin-bottom:14px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin:0 0 16px}
+.stats div{border-top:2px solid var(--line);padding-top:6px}
+.stats dt{font-size:12.5px;color:var(--muted)}
+.stats dd{margin:0;font-size:22px}
+.stats dd.na{font:400 13px "IBM Plex Sans",sans-serif;color:var(--muted);padding-top:5px}
+.notes{font-size:13px;margin:0 0 16px;padding-left:16px;color:var(--warn)}
+.notes li{margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+td:first-child{overflow-wrap:anywhere}
+th.r:nth-child(2),td.r:nth-child(2){width:38px}
+th.r:nth-child(3),td.r:nth-child(3){width:70px}
+th{text-align:left;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line);padding:4px 2px}
+td{padding:4px 2px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent);vertical-align:top}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted);margin:4px 0 14px}
+.footnote{font-size:12px;color:var(--muted);margin-top:14px}
+.sil{border:1px solid var(--line);border-radius:8px;padding:12px 12px 14px;margin:0 0 18px;background:var(--paper)}
+.sil h3{font:600 15px "Chakra Petch",sans-serif;margin:0 0 4px}
+.sil .src{font-size:12.5px;color:var(--muted);margin-bottom:8px;overflow-wrap:anywhere}
+.ctl{display:grid;grid-template-columns:104px minmax(0,1fr) 54px;align-items:center;gap:6px;margin:7px 0;font-size:13.5px}
+.ctl input[type=range]{width:100%;accent-color:var(--accent)}
+.ctl input[type=number]{width:54px;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+.ctl select,.sil input[type=text]{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:3px 5px;grid-column:2 / 4}
+.checks{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13.5px;margin:8px 0}
+.checks input{accent-color:var(--accent)}
+.sil .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.sil .msg{font-size:12.5px;margin-top:8px;color:var(--muted)}
+.sil .msg.warn{color:var(--warn)}
+.pal{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin-top:6px}
+.pal h4{font:600 12.5px "Chakra Petch",sans-serif;margin:0;padding:6px 8px 3px;color:var(--muted);position:sticky;top:0;background:var(--panel);display:flex;align-items:center;gap:6px}
+.pal button{display:flex;justify-content:space-between;gap:8px;width:100%;border:0;border-radius:0;padding:4px 8px 4px 22px;font-size:13px;text-align:left}
+.pal button:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pal button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.pal button small{color:inherit;opacity:.65;font-variant-numeric:tabular-nums}
+.pal .none{padding:8px;font-size:13px;color:var(--muted)}
+#palQ{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+#hint{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px;pointer-events:none}
+#hint:empty{display:none}
+dialog#about{max-width:600px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:20px 24px 18px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+dialog#about::backdrop{background:rgba(10,20,30,.45)}
+dialog#about h2{font-size:20px;margin:0 0 6px}
+dialog#about h3{font:600 15px "Chakra Petch",sans-serif;margin:16px 0 4px}
+dialog#about p,dialog#about li{font-size:14px;line-height:1.5;margin:4px 0}
+dialog#about ul{padding-left:18px;margin:4px 0}
+dialog#about a,.footnote a{color:var(--accent)}
+dialog#about .close{float:right}
+header h1 .infolink{font:500 13px "IBM Plex Sans",sans-serif;color:var(--accent);background:none;border:0;padding:2px 4px;margin-left:10px;vertical-align:middle;cursor:pointer}
+header h1 .infolink:hover{text-decoration:underline}
+kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper)}
+@media (max-width:820px){main{grid-template-columns:1fr;grid-template-rows:60vh auto}aside{border-left:0;border-top:1px solid var(--line)}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="beta" title="Still in development">BETA</span>Drydock <small>Cosmoteer ship editor</small><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="View mode">
+      <button id="mInt" aria-pressed="true">Interior</button>
+      <button id="mExt" aria-pressed="false">Exterior</button>
+    </div>
+    <button id="fit">Fit to view</button>
+    <label class="filebtn">New from image… <input id="silFile" type="file" accept="image/*"></label>
+    <label class="filebtn primary">Open ship… <input id="file" type="file" accept=".png,image/png"></label>
+  </div>
+</header>
+<main>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="empty"><div><strong>No ship loaded</strong>Drop a .ship.png here or use “Open ship…”.<br>To start from scratch, pick a module from the Edit panel.<br>To build a hull from a picture, use “New from image…”.<br>Scroll to zoom, drag to pan, hover a part for details.</div></div>
+    <div id="tip"></div>
+    <div id="hint"></div>
+  </div>
+  <aside id="side">
+    <section class="sil" id="sil" hidden>
+      <h3>Build from silhouette</h3>
+      <div class="src" id="silSrc"></div>
+      <div class="ctl"><span>Size limit</span><select id="silLimit">
+        <option value="120">Vanilla (120 × 120)</option>
+        <option value="200">Larger Ships mod (200 × 200)</option>
+        <option value="1000">Huge Ships mod (1000 × 1000)</option></select></div>
+      <div class="ctl"><label for="silLen">Length (tiles)</label><input type="range" id="silLen" min="8" max="120" value="60"><input type="number" id="silLenN" min="8" max="120" value="60" aria-label="Length in tiles"></div>
+      <div class="ctl"><label for="silThr">Threshold</label><input type="range" id="silThr" min="1" max="254" value="128"><input type="number" id="silThrN" min="1" max="254" value="128" aria-label="Threshold"></div>
+      <div class="ctl"><label for="silArmor">Armor edge</label><select id="silArmor">
+        <option value="0">None, corridor only</option><option value="1" selected>1 tile</option><option value="2">2 tiles</option><option value="3">3 tiles</option></select></div>
+      <div class="checks">
+        <label><input type="checkbox" id="silInv"> Invert</label>
+        <label><input type="checkbox" id="silBig" checked> Largest piece only</label>
+        <label><input type="checkbox" id="silOver" checked> Show image</label>
+      </div>
+      <div class="actions"><button id="silRot">Rotate 90°</button><button id="silRot45">Rotate 45°</button><button id="silClose">Close</button></div>
+      <div class="msg" id="silMsg"></div>
+    </section>
+    <section class="sil" id="build">
+      <h3>Edit</h3>
+      <div class="ctl"><label for="shipName">Ship name</label><input type="text" id="shipName" maxlength="60" placeholder="Unnamed ship"></div>
+      <div class="ctl"><label for="area">Build area</label><select id="area"><option value="120">Vanilla (120 × 120)</option><option value="200">Larger Ships (200 × 200)</option><option value="1000">Huge Ships (1000 × 1000)</option></select></div>
+      <div class="ctl"><label for="mirror">Mirror</label><select id="mirror"><option value="off">Off</option><option value="lr">Left ↔ right</option><option value="tb">Top ↔ bottom</option><option value="ne">↗ Diagonal (bottom-left to top-right)</option><option value="nw">↖ Diagonal (top-left to bottom-right)</option></select></div>
+      <div class="ctl"><label for="front">Front</label><select id="front"><option value="1">↑ Up</option><option value="2">↗ Up-right</option><option value="3">→ Right</option><option value="4">↘ Down-right</option><option value="5">↓ Down</option><option value="6">↙ Down-left</option><option value="7">← Left</option><option value="0">↖ Up-left</option></select></div>
+      <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label></div>
+      <div class="checks" id="ocRow" hidden><label><input type="checkbox" id="ocChk"> Overclock this module <kbd>O</kbd></label></div>
+      <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
+      <div class="pal" id="pal" role="listbox" aria-label="Modules"></div>
+      <div class="actions"><button id="rotBtn" title="Rotate (R)">Rotate</button><button id="delBtn" title="Delete (Del)">Delete</button><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button><button class="primary" id="saveShip" disabled>Save as .ship.png</button></div>
+      <div class="msg" id="editMsg"></div>
+    </section>
+    <h2 id="sName">—</h2>
+    <div class="by" id="sBy">Open a ship to see its stats.</div>
+    <dl class="stats" id="stats"></dl>
+    <ul class="notes" id="notes"></ul>
+    <div class="legend" id="legend"></div>
+    <table id="plist"></table>
+    <p class="footnote">Drydock never changes your original file; saving always makes a new copy. Keep a backup before replacing ships in your Saved Ships folder. See <a href="#" id="aboutLink">Notes &amp; credits</a> for known limits.</p>
+  </aside>
+</main>
+<dialog id="about" aria-labelledby="aboutTitle">
+  <button class="close" id="aboutClose">Close</button>
+  <h2 id="aboutTitle">Drydock beta: notes &amp; credits</h2>
+  <p>An unofficial, fan-made ship viewer and editor for Cosmoteer: Starship Architect &amp; Commander. Not affiliated with or endorsed by Walternate Realities.</p>
+  <h3>Your files</h3>
+  <p>Everything runs in your browser. Ship files and images you open are never uploaded anywhere. Drydock never changes your original file; saving always makes a new copy, so keep a backup before replacing ships in your Saved Ships folder.</p>
+  <h3>Known limits</h3>
+  <ul>
+    <li>Costs for the heat-update parts aren’t known yet, so ship cost is shown as a minimum.</li>
+    <li>Crew required isn’t calculated. Roles and crew priorities on loaded ships are kept, but can’t be edited here.</li>
+    <li>Doors can go on any wall between two rooms; the game’s per-module door spots aren’t checked yet, so the game may drop a door.</li>
+    <li>Mirrored wedges and other one-sided parts are mirrored by rotation only and may need a manual flip in the game.</li>
+    <li>Build-area edges and the 8 flight directions follow how saved ships behave; tell us if the game disagrees.</li>
+    <li>Very large hulls (hundreds of thousands of parts) can be slow to edit and save.</li>
+  </ul>
+  <h3>Credits</h3>
+  <ul>
+    <li>Save-format research: GameDungeon’s cosmoteer_save_tools, as used in lunastrod’s cosmoteer-com and Helicophel’s cosmoteer-ship-to-wikitext.</li>
+    <li>Part sizes, costs and outlines: the part table from Helicophel’s cosmoteer-ship-to-wikitext (MIT license, © franklin050187).</li>
+    <li>Heat-era part geometry: 0neye’s Voidwright vanilla part export (Apache License 2.0).</li>
+    <li>No-build zones are derived from Cosmoteer’s own part rules files.</li>
+    <li>Cosmoteer is © Walternate Realities.</li>
+  </ul>
+</dialog>
+<script>
+const PARTS = {"cosmoteer.corridor":{"s":[1,1],"m":1,"c":0.1,"t":["crew_transport"]},"cosmoteer.door":{"s":[1,1],"c":0.1,"t":["crew_transport"]},"cosmoteer.delete":{"s":[1,1],"m":1,"t":[""]},"cosmoteer.structure":{"s":[1,1],"m":0.33,"c":0.05,"t":["structure"]},"cosmoteer.structure_wedge":{"s":[1,1],"m":0.17,"c":0.025,"t":["structure"]},"cosmoteer.structure_1x2_wedge":{"s":[1,2],"m":0.33,"c":0.05,"t":["structure"]},"cosmoteer.structure_1x3_wedge":{"s":[1,3],"m":0.5,"c":0.075,"t":["structure"]},"cosmoteer.structure_tri":{"s":[1,1],"m":0.08,"c":0.025,"t":["structure"]},"cosmoteer.laser_blaster_small":{"s":[1,2],"m":2.5,"c":2,"t":["weapon","on_off","energy weapon"]},"cosmoteer.laser_blaster_large":{"s":[2,3],"m":7.68,"c":6,"t":["weapon","on_off","energy weapon","alternating_fire"]},"cosmoteer.disruptor":{"s":[1,3],"m":3.48,"c":3,"t":["weapon","on_off","energy weapon"]},"cosmoteer.ion_beam_emitter":{"s":[2,4],"m":8,"c":10,"t":["weapon","on_off","energy weapon"]},"cosmoteer.resource_collector":{"s":[2,2],"m":4,"c":0,"t":["on_off"]},"cosmoteer.ion_beam_prism":{"s":[2,2],"m":7.7,"c":5,"t":["energy weapon","on_off","weapon"]},"cosmoteer.tractor_beam_emitter":{"s":[5,5],"m":32.07,"c":40,"t":["on_off","weapon_like","utilities"]},"cosmoteer.point_defense":{"s":[1,1],"m":1,"c":1,"t":["weapon","on_off","fire_pref","defense","energy weapon"]},"cosmoteer.mining_laser_small":{"s":[2,3],"m":7.4,"c":6,"t":["weapon","on_off","energy weapon","utilities"]},"cosmoteer.cannon_med":{"s":[2,1],"m":4.44,"c":2,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.sensor_array":{"s":[3,3],"m":11.54,"c":20,"t":["on_off","utilities"]},"cosmoteer.cannon_large":{"s":[3,2],"m":12.29,"c":5,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.hyperdrive_beacon":{"s":[4,4],"m":17.13,"c":40,"t":["on_off","utilities"]},"cosmoteer.cannon_deck":{"s":[4,5],"m":27.07,"c":20,"t":["weapon","on_off","projectile weapon","alternating_fire"]},"cosmoteer.explosive_charge":{"s":[1,1],"m":1,"c":0.6,"t":["utilities"]},"cosmoteer.roof_light":{"s":[1,1],"m":1,"c":0.2,"t":["on_off","utilities","light"]},"cosmoteer.missile_launcher":{"s":[2,3],"m":8,"c":10,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.roof_headlight":{"s":[1,1],"m":1,"c":0.3,"t":["on_off","utilities","light"]},"cosmoteer.railgun_loader":{"s":[2,3],"m":24,"c":12.5,"t":["on_off","projectile weapon"]},"cosmoteer.armor_structure_hybrid_1x1":{"s":[1,1],"m":1.5,"c":0.125,"t":["defense","structure","armor"]},"cosmoteer.armor_structure_hybrid_1x2":{"s":[1,2],"m":3,"c":0.25,"t":["defense","structure","armor"]},"cosmoteer.railgun_accelerator":{"s":[2,3],"m":36,"c":7.5,"t":["on_off","projectile weapon"]},"cosmoteer.armor_structure_hybrid_1x3":{"s":[1,3],"m":4.5,"c":0.375,"t":["defense","structure","armor"]},"cosmoteer.armor_structure_hybrid_tri":{"s":[1,1],"m":1,"c":0.075,"t":["defense","structure","armor"]},"cosmoteer.railgun_launcher":{"s":[2,3],"m":36,"c":7.5,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.armor":{"s":[1,1],"m":3,"c":0.2,"t":["defense","armor"]},"cosmoteer.armor_2x1":{"s":[2,1],"m":6,"c":0.4,"t":["defense","armor"]},"cosmoteer.flak_cannon_large":{"s":[3,6],"m":16.77,"c":21,"t":["weapon","on_off","fire_pref","defense","projectile weapon"]},"cosmoteer.armor_wedge":{"s":[1,1],"m":1.5,"c":0.1,"t":["defense","armor"]},"cosmoteer.armor_1x2_wedge":{"s":[1,2],"m":3,"c":0.2,"t":["defense","armor"]},"cosmoteer.shield_gen_small":{"s":[2,2],"m":6,"c":5,"t":["on_off","defense"]},"cosmoteer.armor_1x3_wedge":{"s":[1,3],"m":4.5,"c":0.3,"t":["defense","armor"]},"cosmoteer.armor_tri":{"s":[1,1],"m":0.75,"c":0.05,"t":["defense","armor"]},"cosmoteer.shield_gen_large":{"s":[3,6],"m":12.65,"c":20,"t":["on_off","defense"]},"cosmoteer.thruster_small":{"s":[1,1],"m":1.3,"c":0.5,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_med":{"s":[1,2],"m":2.45,"c":1.5,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_large":{"s":[2,2],"m":4.99,"c":4,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_boost":{"s":[2,3],"m":8.88,"c":6,"t":["thruster","on_off","flight"]},"cosmoteer.fire_extinguisher":{"s":[1,1],"m":1,"c":0.3,"t":["defense"]},"cosmoteer.thruster_huge":{"s":[3,3],"m":11,"c":10,"t":["thruster","on_off","flight"]},"cosmoteer.control_room_small":{"s":[2,2],"m":4,"c":10,"t":["on_off","flight"]},"cosmoteer.control_room_med":{"s":[3,3],"m":9,"c":25,"t":["on_off","flight"]},"cosmoteer.thruster_small_2way":{"s":[1,1],"m":1.61,"c":1,"t":["thruster","on_off","flight"]},"cosmoteer.control_room_large":{"s":[4,4],"m":16,"c":50,"t":["on_off","flight"]},"cosmoteer.thruster_small_3way":{"s":[1,1],"m":1.91,"c":1.5,"t":["thruster","on_off","flight"]},"cosmoteer.hyperdrive_small":{"s":[2,2],"m":4,"c":10,"t":["hyperdrive","on_off","flight"]},"cosmoteer.engine_room":{"s":[3,3],"m":9,"c":12,"t":["on_off","flight"]},"cosmoteer.crew_quarters_small":{"s":[1,2],"m":2,"c":1.6,"t":["crew","crew_transport"]},"cosmoteer.crew_quarters_med":{"s":[2,2],"m":4,"c":4.2,"t":["crew","crew_transport"]},"cosmoteer.airlock":{"s":[1,1],"m":1,"c":0.6,"t":["on_off","crew_transport"]},"cosmoteer.conveyor":{"s":[1,1],"m":1,"c":0.2,"t":["crew_transport"]},"cosmoteer.reactor_small":{"s":[2,2],"m":4,"c":25,"t":["power","reactor"]},"cosmoteer.reactor_med":{"s":[3,3],"m":9,"c":50,"t":["power","reactor"]},"cosmoteer.reactor_large":{"s":[4,4],"m":16,"c":75,"t":["power","reactor"]},"cosmoteer.power_storage":{"s":[2,2],"m":4,"c":4,"t":["power","storage"]},"cosmoteer.factory_ammo":{"s":[2,2],"m":4,"c":4.1,"t":["on_off","factory"]},"cosmoteer.factory_he":{"s":[3,3],"m":9,"c":15.2,"t":["on_off","factory"]},"cosmoteer.factory_emp":{"s":[3,4],"m":12,"c":20.5,"t":["on_off","factory"]},"cosmoteer.factory_nuke":{"s":[4,4],"m":16,"c":27.1,"t":["on_off","factory"]},"cosmoteer.factory_mine":{"s":[4,3],"m":12,"c":20.18,"t":["on_off","factory"]},"cosmoteer.factory_steel":{"s":[4,4],"m":16,"c":30.4,"t":["on_off","factory"]},"cosmoteer.factory_coil":{"s":[3,3],"m":9,"c":30.8,"t":["on_off","factory"]},"cosmoteer.factory_coil2":{"s":[4,3],"m":12,"c":54.8,"t":["on_off","factory"]},"cosmoteer.factory_tristeel":{"s":[4,4],"m":16,"c":68.2,"t":["on_off","factory"]},"cosmoteer.factory_diamond":{"s":[2,3],"m":6,"c":53.2,"t":["on_off","factory"]},"cosmoteer.factory_processor":{"s":[3,3],"m":9,"c":89,"t":["on_off","factory"]},"cosmoteer.factory_uranium":{"s":[3,4],"m":12,"c":98,"t":["on_off","factory"]},"cosmoteer.storage_2x2":{"s":[2,2],"m":4,"c":1.2,"t":["storage"]},"cosmoteer.storage_3x2":{"s":[3,2],"m":6,"c":1.8,"t":["storage"]},"cosmoteer.storage_3x3":{"s":[3,3],"m":9,"c":2.7,"t":["storage"]},"cosmoteer.storage_4x3":{"s":[4,3],"m":12,"c":3.6,"t":["storage"]},"cosmoteer.storage_4x4":{"s":[4,4],"m":16,"c":4.8,"t":["storage"]},"cosmoteer.chaingun":{"s":[3,5],"m":17.77,"c":24,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.chaingun_magazine":{"s":[1,2],"m":2,"c":1,"t":["projectile weapon"]},"cosmoteer.hyperdrive_large":{"s":[4,4],"m":16,"c":34,"t":["hyperdrive","on_off","flight"]},"cosmoteer.thruster_rocket_battery":{"s":[1,2],"m":2,"c":3,"t":["flight"]},"cosmoteer.thruster_rocket_extender":{"s":[3,2],"m":6,"c":6,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_rocket_nozzle":{"s":[3,4],"m":14.4,"c":15,"t":["thruster","on_off","flight"]},"cosmoteer.hyperdrive_med":{"s":[3,3],"m":9,"c":20,"t":["hyperdrive","on_off","flight"]},"cosmoteer.manipulator_beam_emitter":{"s":[2,2],"m":4,"c":3,"t":["on_off","utilities"]},"cosmoteer.crew_quarters_large":{"s":[3,4],"m":12,"c":15.6,"t":["crew","crew_transport"]}};
+// Heat parts (Meltdown update): sizes measured from real ships; costs unknown.
+Object.assign(PARTS, {
+  "cosmoteer.heat_pipe_adaptive": {s:[1,1], t:["heat","pipe"]},
+  "cosmoteer.heat_pipe_adaptive_structure": {s:[1,1], t:["heat","pipe"]},
+  "cosmoteer.heat_pipe_crossing": {s:[1,1], t:["heat","pipe"]},
+  "cosmoteer.heat_exchanger": {s:[1,1], t:["heat"]},
+  "cosmoteer.radiator": {s:[1,3], t:["heat"]},
+  "cosmoteer.thermal_battery": {s:[2,2], t:["heat"]},
+  "cosmoteer.thermal_amplification_pump": {s:[1,3], t:["heat"]},
+  "cosmoteer.thermal_dilation_pump": {s:[2,2], t:["heat"]},
+  "cosmoteer.resonance_beam_turret": {s:[4,4], t:["weapon"]},
+  "cosmoteer.factory_thermal": {s:[3,3], t:["factory"]},
+}); // heat-era sizes from Voidwright's export of the game's rules (Mar 2026)
+PARTS["cosmoteer.chaingun"].s=[3,4]; PARTS["cosmoteer.flak_cannon_large"].s=[3,5]; // saved footprint per the same export
+const ZONES = {"cosmoteer.shield_gen_small":{"W":2,"p":[0,1,2,2],"z":[["default",[0,0,2,1],1]]},"cosmoteer.radiator":{"W":1,"p":[0,1,1,3],"z":[["default",[0,0,1,1],1]]},"cosmoteer.resonance_beam_turret":{"W":4,"p":[0,0,4,4],"z":[["tall",[-2,-2,8,2],0],["tall",[-2,0,2,6],0],["tall",[4,0,2,6],0],["tall",[0,4,1,2],0],["tall",[3,4,1,2],0]],"t":["default","tall"]},"cosmoteer.cannon_deck":{"W":4.0,"p":[0,0,4.0,5.0],"z":[["tall",[-2,-2,8,2],0],["tall",[-2,0,2,5],0],["tall",[4,0,2,5],0]],"t":["default","tall"]},"cosmoteer.cannon_large":{"W":3.0,"p":[0.0,1.0,3.0,2.0],"z":[["default",[0,0,3,1],1],["default",[0,-2,3,2],0]]},"cosmoteer.cannon_med":{"W":2.0,"p":[0.0,1.0,2.0,1.0],"z":[["default",[0,0,2,1],1],["default",[0,-1,2,1],0]]},"cosmoteer.chaingun":{"W":3.0,"p":[0.0,2.0,3.0,4.0],"z":[["default",[0,0,3,2],1],["default",[0,-1,3,1],0]]},"cosmoteer.disruptor":{"W":1.0,"p":[0.0,1.0,1.0,3.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.flak_cannon_large":{"W":3.0,"p":[0.0,1.0,3.0,5.0],"z":[["default",[0,0,3,1],1],["default",[0,-2,3,2],0]]},"cosmoteer.hyperdrive_beacon":{"W":4.0,"p":[0,0,4.0,4.0],"z":[],"t":["default","tall"]},"cosmoteer.ion_beam_emitter":{"W":2.0,"p":[0.0,1.0,2.0,4.0],"z":[["default",[0,0,2,1],1]]},"cosmoteer.laser_blaster_large":{"W":2.0,"p":[0.0,2.0,2.0,3.0],"z":[["default",[0,0,2,2],1],["default",[0,-2,2,2],0]]},"cosmoteer.laser_blaster_small":{"W":1.0,"p":[0.0,1.0,1.0,2.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.mining_laser_small":{"W":2.0,"p":[0,0,2.0,3.0],"z":[],"t":["default","tall"]},"cosmoteer.missile_launcher":{"W":2.0,"p":[0.0,1.0,2.0,3.0],"z":[["default",[0,0,2,1],1],["default",[0,-2,2,2],0]]},"cosmoteer.point_defense":{"W":1.0,"p":[0.0,1.0,1.0,1.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.railgun_launcher":{"W":2.0,"p":[0.0,1.0,2.0,3.0],"z":[["default",[0,0,2,1],1],["default",[0,-2,2,2],0]]},"cosmoteer.sensor_array":{"W":3.0,"p":[0,0,3.0,3.0],"z":[],"t":["default","tall"]},"cosmoteer.thruster_boost":{"W":2.0,"p":[0.0,0.0,2.0,3.0],"z":[["default",[0,3,2,2],1],["default",[0,5,2,18],0]]},"cosmoteer.thruster_huge":{"W":3.0,"p":[0.0,0.0,3.0,3.0],"z":[["default",[0,3,3,1],1],["default",[0,4,3,10],0]]},"cosmoteer.thruster_large":{"W":2.0,"p":[0.0,0.0,2.0,2.0],"z":[["default",[0,2,2,1],1],["default",[0,3,2,7],0]]},"cosmoteer.thruster_med":{"W":1.0,"p":[0.0,0.0,1.0,2.0],"z":[["default",[0,2,1,1],1],["default",[0,3,1,5],0]]},"cosmoteer.thruster_rocket_nozzle":{"W":3.0,"p":[0.0,0.0,3.0,4.0],"z":[["default",[0,4,3,1],1],["default",[0,5,3,1],0],["default",[-1,6,5,200],0]]},"cosmoteer.thruster_small":{"W":1.0,"p":[0.0,0.0,1.0,1.0],"z":[["default",[0,1,1,1],1],["default",[0,2,1,3],0]]},"cosmoteer.thruster_small_2way":{"W":2.0,"p":[0.0,0.0,1.0,1.0],"z":[["default",[0,1,2,1],1],["default",[1,0,1,1],1],["default",[0,2,1,3],0],["default",[2,0,3,1],0]]},"cosmoteer.thruster_small_3way":{"W":3.0,"p":[1.0,0.0,1.0,1.0],"z":[["default",[0,1,3,1],1],["default",[0,0,1,1],1],["default",[2,0,1,1],1],["default",[1,2,1,3],0],["default",[3,0,3,1],0],["default",[-3,0,3,1],0]]},"cosmoteer.tractor_beam_emitter":{"W":5.0,"p":[0,0,5.0,5.0],"z":[],"t":["default","tall"]}}; // no-build zones from the game's rules files (June 2024): [tag, [x,y,w,h] in the part's unrotated frame, isOverhang]
+const CREW_CAP = {"cosmoteer.crew_quarters_small":2,"cosmoteer.crew_quarters_med":6,"cosmoteer.crew_quarters_large":24};
+const DEMO_B64 = "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KBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqFQqFQKBQKhUKhUCgUCoVCoVAoFAqF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IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIi8gPu/wdAA+P1W+whpQAAAABJRU5ErkJggg==";
+
+const CATS = [
+  ["heat","Heat",       "#E0662F"],
+  ["weapon","Weapons",  "#C8423B"],
+  ["shield","Shields",  "#8E5BD0"],
+  ["power","Power",     "#3FD15A"],
+  ["flight","Engines",  "#FFCC00"],
+  ["crew","Crew",       "#4C7FC0"],
+  ["armor","Armor",     "#5D6A78"],
+  ["structure","Structure","#2F3740"],
+  ["utility","Utility & factory","#7A4E2D"],
+  ["control","Control", "#1F5FD6"],
+  ["mod","Modded / unknown","#9A8F86"],
+];
+const CAT = Object.fromEntries(CATS.map(([k,n,c])=>[k,{name:n,color:c}]));
+const PART_COLOR = {"cosmoteer.corridor":"#FFFFFF","cosmoteer.engine_room":"#FF9A1F","cosmoteer.heat_pipe_crossing":"#B94A22","cosmoteer.conveyor":"#FFFFFF","cosmoteer.heat_exchanger":"#FFFFFF","cosmoteer.hyperdrive_small":"#FFFFFF","cosmoteer.hyperdrive_med":"#FFFFFF","cosmoteer.hyperdrive_large":"#FFFFFF","cosmoteer.storage_2x2":"#D9CFB4","cosmoteer.storage_3x2":"#D9CFB4","cosmoteer.storage_3x3":"#D9CFB4","cosmoteer.storage_4x3":"#D9CFB4","cosmoteer.storage_4x4":"#D9CFB4"}; // per-part colors that differ from their group
+const colorOf = p => PART_COLOR[p.id] || CAT[p.cat].color;
+function catOf(id){
+  const d = PARTS[id]; if(!d) return "mod";
+  const t = d.t||[];
+  if(t.includes("heat")) return "heat";
+  if(id.includes("control_room")) return "control";
+  if(t.includes("weapon")||t.includes("energy weapon")||t.includes("projectile weapon")||t.includes("weapon like")) return "weapon";
+  if(id.includes("shield")) return "shield";
+  if(t.includes("armor")) return "armor";
+  if(t.includes("structure")) return "structure";
+  if(t.includes("power")) return "power";
+  if(t.includes("flight")||t.includes("thruster")||t.includes("hyperdrive")) return "flight";
+  if(t.includes("crew")||t.includes("crew_transport")) return "crew";
+  return "utility";
+}
+const isExternal = p => p.cat==="weapon" || p.cat==="flight" || /radiator/.test(p.id); // visible on the hull
+
+// ---------- PNG decoding (manual, so transparent pixels keep their RGB bits) ----------
+async function inflate(bytes, fmt){
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(fmt));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function decodePNG(buf){
+  const u = new Uint8Array(buf), dv = new DataView(buf);
+  const sig=[137,80,78,71,13,10,26,10];
+  if(!sig.every((b,i)=>u[i]===b)) throw new Error("This file isn’t a PNG.");
+  let p=8, w,h,depth,ctype,interlace; const idat=[];
+  while(p<u.length){
+    const len=dv.getUint32(p); const type=String.fromCharCode(...u.subarray(p+4,p+8));
+    const data=u.subarray(p+8,p+8+len);
+    if(type==="IHDR"){ w=dv.getUint32(p+8); h=dv.getUint32(p+12); depth=u[p+16]; ctype=u[p+17]; interlace=u[p+20]; }
+    else if(type==="IDAT") idat.push(data);
+    else if(type==="IEND") break;
+    p+=12+len;
+  }
+  if(depth!==8 || (ctype!==6 && ctype!==2) || interlace) throw new Error("Unsupported PNG layout. Ship files are 8-bit RGB or RGBA; this one may have been edited or re-saved.");
+  const ch = ctype===6?4:3, stride=w*ch;
+  const raw = await inflate(new Blob(idat), "deflate");
+  const out = new Uint8Array(w*h*ch);
+  for(let y=0;y<h;y++){
+    const f=raw[y*(stride+1)], src=y*(stride+1)+1, dst=y*stride;
+    for(let x=0;x<stride;x++){
+      const a = x>=ch?out[dst+x-ch]:0, b = y?out[dst-stride+x]:0, c=(x>=ch&&y)?out[dst-stride+x-ch]:0;
+      let v=raw[src+x];
+      if(f===1) v+=a; else if(f===2) v+=b; else if(f===3) v+=(a+b)>>1;
+      else if(f===4){ const pp=a+b-c, pa=Math.abs(pp-a), pb=Math.abs(pp-b), pc=Math.abs(pp-c); v+= (pa<=pb&&pa<=pc)?a:(pb<=pc?b:c); }
+      out[dst+x]=v&255;
+    }
+  }
+  return {w,h,ch,px:out};
+}
+async function extractShip(buf){
+  const img = await decodePNG(buf);
+  const chan = i => img.px[Math.floor(i/3)*img.ch + (i%3)] & 1;
+  const byteAt = off => { let b=0; for(let k=0;k<8;k++) b |= chan(off*8+k)<<k; return b; };
+  const cap = Math.floor(img.w*img.h*3/8);
+  const len = ((byteAt(0)<<24)|(byteAt(1)<<16)|(byteAt(2)<<8)|byteAt(3))>>>0;
+  if(len<10 || len>cap-4) throw new Error("No ship data found in this image. It may be a normal PNG, or a ship image that was resized or recompressed.");
+  let data = new Uint8Array(len); for(let i=0;i<len;i++) data[i]=byteAt(i+4);
+  if(new TextDecoder("latin1").decode(data.subarray(0,9))==="COSMOSHIP") data=data.subarray(9);
+  let raw;
+  try{ raw = await inflate(data,"gzip"); }catch(e){ throw new Error("The ship data is damaged and couldn’t be unpacked."); }
+  return {d:parseTree(raw), tree:rawParse(raw)};
+}
+// ---------- Cosmoteer object tree ----------
+const INT_KEYS=new Set(["Rotation","Orientation","Version","FlightDirection","FormationOrder","Key","Max","Min","ID","BuildMirrorAxis","PaintMirrorAxis","AssignmentPriority"]);
+const BOOL_KEYS=new Set(["FlipX","FlipY","Value","BuildMirrorEnabled","PaintMirrorEnabled","AutoFillFromLower"]);
+const STR_KEYS=new Set(["ID","Name","Author","RoofBaseTexture","ShipRulesID","Description","ComponentID","PartID","IDString","Value"]);
+const COLOR_KEYS=new Set(["Color","RoofBaseColor","RoofDecalColor1","RoofDecalColor2","RoofDecalColor3","CrewUniformColor"]);
+const latin1 = b => new TextDecoder("latin1").decode(b);
+function lenStr(b){ let n=0,i=0,p=0; for(;;){ const x=b[p++]; n|=(x&127)<<(7*i); if(!(x&128)||i>2) break; i++; } return latin1(b.subarray(p,p+n)); }
+function interp(k,b){
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  if(INT_KEYS.has(k)&&b.length===4) return dv.getInt32(0,true);
+  if((k==="Location"||k==="Cell"||k==="Key")&&b.length===8) return [dv.getInt32(0,true),dv.getInt32(4,true)];
+  if(BOOL_KEYS.has(k)&&b.length===1) return !!b[0];
+  if(STR_KEYS.has(k)) { try{ return lenStr(b); }catch{ return b; } }
+  if(COLOR_KEYS.has(k)&&b.length===16) return [0,4,8,12].map(o=>dv.getFloat32(o,true));
+  return b;
+}
+function parseTree(u){
+  let p=0; const rb=()=>{ if(p>=u.length) throw new Error("Ship data ended early."); return u[p++]; };
+  const varint=()=>{ let b=rb(),c=1; if(b&1){c++; if(b&2){c++; if(b&4)c++;}} for(let i=1;i<c;i++) b=(b|(rb()<<(i*8)))>>>0; return b>>>Math.min(c,3); };
+  const rstr=()=>{ let n=0,i=0; for(;;){ const x=rb(); n|=(x&127)<<(7*i); if(!(x&128)||i>2) break; i++; } const s=latin1(u.subarray(p,p+n)); p+=n; return s; };
+  function node(){
+    const t=rb();
+    if(t===0) return "Unset";
+    if(t===1){ const n=varint(); const b=u.subarray(p,p+n); p+=n; return {__b:b}; }
+    if(t===2){ const n=varint(), a=[]; for(let i=0;i<n;i++){ let e=node(); if(e&&e.__b) e=latin1(e.__b).replace(/[\x00-\x1F\x7F-\x9F]+/g,""); a.push(e);} return a; }
+    if(t===3){ const n=varint(), o={}; for(let i=0;i<n;i++){ const k=rstr(); let v=node(); if(v&&v.__b) v=interp(k,v.__b); o[k]=v; } return o; }
+    if(t===4){ const s=rb(); return s===255?{_link:varint()}:null; }
+    if(t===5) return null;
+    throw new Error("Unrecognised data in ship file (node type "+t+"). The game version may be newer than this viewer.");
+  }
+  return node();
+}
+
+// ---------- model ----------
+let ship=null, mode="interior", cam={x:0,y:0,s:20};
+function buildModel(d){
+  let parts_i=0;
+  const parts = (Array.isArray(d.Parts)?d.Parts:[]).map(p=>{
+    const def=PARTS[p.ID], size=def?def.s:[1,1], r=((p.Rotation|0)%4+4)%4;
+    const w=size[r%2], h=size[(r+1)%2];
+    return {id:p.ID, x:p.Location[0], y:p.Location[1], w, h, rot:r, flip:!!p.FlipX, cat:catOf(p.ID), known:!!def, oc:p.OC, i:parts_i++};
+  });
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const p of parts){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h); }
+  if(!parts.length){ minX=minY=0; maxX=maxY=1; }
+  const GW=maxX-minX, GH=maxY-minY, grid=new Int32Array(GW*GH);
+  parts.forEach((p,n)=>{ for(let i=0;i<p.w;i++) for(let j=0;j<p.h;j++){ const gx=p.x+i-minX, gy=p.y+j-minY; if(gx>=0&&gy>=0&&gx<GW&&gy<GH) grid[gy*GW+gx]=n+1; } });
+  const cell={ get:(x,y)=>{ const gx=x-minX, gy=y-minY; if(gx<0||gy<0||gx>=GW||gy>=GH) return undefined; const n=grid[gy*GW+gx]; return n?parts[n-1]:undefined; } };
+  if(!Array.isArray(d.Doors)) d.Doors=[];
+  const doors = d.Doors.filter(x=>x&&x.Cell);
+  let roof = Array.isArray(d.RoofBaseColor)?d.RoofBaseColor:null;
+  const zoneAt=new Map(), zlist=[];
+  for(const p of parts){ const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip); if(!zs.length) continue; zlist.push([p.i,zs]);
+    for(const z of zs) forCells(z,(cx,cy)=>{ const k=cx+","+cy; let a=zoneAt.get(k); if(!a) zoneAt.set(k,a=[]); a.push([p.i,z.tag]); }); }
+  return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist};
+}
+
+// ---------- rendering ----------
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d"), stage=document.getElementById("stage");
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function resize(){ const r=stage.getBoundingClientRect(), dpr=devicePixelRatio||1; cv.width=Math.max(1,r.width*dpr); cv.height=Math.max(1,r.height*dpr); draw(); }
+function fit(){
+  if(!ship||!ship.parts.length) return;
+  const r=stage.getBoundingClientRect(), b=ship.bounds, W=b.maxX-b.minX, H=b.maxY-b.minY;
+  cam.s=Math.max(0.1,Math.min(80,Math.min((r.width-60)/W,(r.height-60)/H)));
+  cam.x=(b.minX+b.maxX)/2; cam.y=(b.minY+b.maxY)/2; draw();
+}
+const toScreen=(gx,gy)=>{ const r=stage.getBoundingClientRect(); return [(gx-cam.x)*cam.s+r.width/2,(gy-cam.y)*cam.s+r.height/2]; };
+const toGrid=(sx,sy)=>{ const r=stage.getBoundingClientRect(); return [(sx-r.width/2)/cam.s+cam.x,(sy-r.height/2)/cam.s+cam.y]; };
+function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=n>>16,g=(n>>8)&255,b=n&255; const f=v=>Math.max(0,Math.min(255,Math.round(amt<0?v*(1+amt):v+(255-v)*amt))); return `rgb(${f(r)},${f(g)},${f(b)})`; }
+function roofColor(){
+  const hull=[0x8C,0x99,0xA5];
+  if(!(ship&&ship.roof)) return "#8C99A5";
+  const a=Math.max(0,Math.min(1,ship.roof[3]));
+  const [r,g,b]=[0,1,2].map(i=>Math.round(hull[i]*(1-a)+Math.max(0,Math.min(1,ship.roof[i]))*255*a));
+  return "#"+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);
+}
+function draw(){
+  const dpr=devicePixelRatio||1, r=stage.getBoundingClientRect();
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height);
+  // drafting grid
+  const [gx0,gy0]=toGrid(0,0), [gx1,gy1]=toGrid(r.width,r.height);
+  ctx.lineWidth=1;
+  if(cam.s>=5){
+    for(let x=Math.floor(gx0);x<=gx1;x++){ const [sx]=toScreen(x,0); ctx.strokeStyle=x%10===0?css("--grid-major"):css("--grid"); ctx.beginPath(); ctx.moveTo(sx+.5,0); ctx.lineTo(sx+.5,r.height); ctx.stroke(); }
+    for(let y=Math.floor(gy0);y<=gy1;y++){ const [,sy]=toScreen(0,y); ctx.strokeStyle=y%10===0?css("--grid-major"):css("--grid"); ctx.beginPath(); ctx.moveTo(0,sy+.5); ctx.lineTo(r.width,sy+.5); ctx.stroke(); }
+  }
+  drawArea();
+  if(!ship) return;
+  const s=cam.s, ink=css("--ink");
+  if(sil.on && sil.overlay && sil.rot){ const [x,y]=toScreen(sil.x0,sil.y0); ctx.save(); ctx.globalAlpha=.28; ctx.imageSmoothingEnabled=true; const cr=sil.crop; ctx.drawImage(sil.rot,cr.sx,cr.sy,cr.sw,cr.sh,x,y,sil.W*s,sil.H*s); ctx.restore(); }
+  if(ship.parts.length>12000 || s<4){ drawBitmap(); drawOverlays(); return; }
+  const rect=(p,fill,stroke,inset=0)=>{ const [x,y]=toScreen(p.x,p.y); ctx.fillStyle=fill; ctx.fillRect(x+inset,y+inset,p.w*s-2*inset,p.h*s-2*inset); if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=1; ctx.strokeRect(x+inset+.5,y+inset+.5,p.w*s-2*inset-1,p.h*s-2*inset-1);} };
+  if(mode==="interior"){
+    for(const p of ship.parts){
+      const c=colorOf(p);
+      if(/roof_/.test(p.id)) continue; // roof lights are drawn on top, after everything else
+      if(/^cosmoteer\.hyperdrive_(small|med|large)$/.test(p.id)){ // white module with a blue core that scales with its size
+        rect(p,"#FFFFFF","#BFC6CC"); const [cx,cy]=toScreen(p.x+p.w/2,p.y+p.h/2), rr=Math.max(2,s*.36*Math.min(p.w,p.h));
+        ctx.save(); ctx.fillStyle="#2F7BEA"; ctx.strokeStyle="#1D4E96"; ctx.lineWidth=Math.max(1,s*.06); ctx.beginPath(); ctx.arc(cx,cy,rr,0,7); ctx.fill(); ctx.stroke(); ctx.restore(); continue; }
+      if(p.id==="cosmoteer.heat_exchanger"){ // white tile with an orange core
+        rect(p,"#FFFFFF","#BFC6CC"); const [cx,cy]=toScreen(p.x+p.w/2,p.y+p.h/2), rr=Math.max(1.5,s*.26*Math.min(p.w,p.h));
+        ctx.save(); ctx.fillStyle=CAT.heat.color; ctx.strokeStyle=shade(CAT.heat.color,-.35); ctx.lineWidth=Math.max(1,s*.05); ctx.beginPath(); ctx.arc(cx,cy,rr,0,7); ctx.fill(); ctx.stroke(); ctx.restore(); continue; }
+      if(p.cat==="heat" && p.w===1 && p.h===1 && /pipe/.test(p.id)){
+        rect(p,shade(c,.78),null);
+        const [x,y]=toScreen(p.x+.5,p.y+.5); ctx.strokeStyle=c; ctx.lineWidth=Math.max(2,s*.28); ctx.lineCap="round";
+        let links=0;
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const n=ship.cell.get(p.x+dx,p.y+dy); if(n&&n.cat==="heat"){ links++; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx*s*.5,y+dy*s*.5); ctx.stroke(); } }
+        ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,Math.max(1.5,s*.18),0,7); ctx.fill();
+        continue;
+      }
+      if(p.cat==="structure") drawLattice(p); else if(SHAPES[p.id]) drawShape(p, shade(c,.35), shade(c,-.25), shade(CAT.structure.color,.35)); else rect(fullRect(p), p.known?shade(c,.35):shade(c,.55), shade(c,-.25));
+      if(!p.known){ ctx.save(); const [x,y]=toScreen(p.x,p.y); ctx.beginPath(); ctx.rect(x,y,p.w*s,p.h*s); ctx.clip(); ctx.strokeStyle=shade(c,-.1); ctx.lineWidth=1; for(let k=-p.h*s;k<p.w*s;k+=6){ ctx.beginPath(); ctx.moveTo(x+k,y+p.h*s); ctx.lineTo(x+k+p.h*s,y); ctx.stroke(); } ctx.restore(); }
+      // facing tick for rotated parts
+      if(p.id==="cosmoteer.conveyor" && s>=8){ // moving walkway: solid arrow pointing the way it moves
+        const [cx,cy]=toScreen(p.x+.5,p.y+.5), d=[[0,-1],[1,0],[0,1],[-1,0]][p.rot], L=s*.32, w=s*.2;
+        ctx.save(); ctx.fillStyle="#8A949C"; ctx.beginPath(); ctx.moveTo(cx+d[0]*L,cy+d[1]*L);
+        ctx.lineTo(cx-d[0]*L*.6-d[1]*w,cy-d[1]*L*.6+d[0]*w); ctx.lineTo(cx-d[0]*L*.6+d[1]*w,cy-d[1]*L*.6-d[0]*w); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      if(s>=10 && p.known && p.cat!=="armor" && p.cat!=="structure" && p.id!=="cosmoteer.corridor" && p.id!=="cosmoteer.conveyor"){
+        const [cx,cy]=toScreen(p.x+p.w/2,p.y+p.h/2), dir=[[0,-1],[1,0],[0,1],[-1,0]][p.rot];
+        ctx.strokeStyle=shade(c,-.45); ctx.lineWidth=Math.max(1.5,s*.08);
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+dir[0]*Math.min(p.w,p.h)*s*.35,cy+dir[1]*Math.min(p.w,p.h)*s*.35); ctx.stroke();
+      }
+      if(s*Math.min(p.w,p.h)>=34){
+        const name=p.id.split(".").pop().replace(/_/g," ");
+        ctx.font=`500 ${Math.min(13,Math.max(10,s*.3))}px "IBM Plex Sans",sans-serif`;
+        if(ctx.measureText(name).width <= p.w*s-8){
+          ctx.fillStyle=shade(c,-.6); ctx.textAlign="center"; ctx.textBaseline="middle";
+          const [cx,cy]=toScreen(p.x+p.w/2,p.y+p.h/2); ctx.fillText(name,cx,cy+Math.min(p.h*s*.3,s*.6));
+        }
+      }
+    }
+    ctx.fillStyle=ink;
+    // roof lights: a round lamp; headlights also show which way they shine
+    for(const p of ship.parts){ if(!/roof_/.test(p.id)) continue; const c=colorOf(p), [cx,cy]=toScreen(p.x+p.w/2,p.y+p.h/2), r=Math.max(2,s*.28*Math.min(p.w,p.h));
+      ctx.save(); ctx.fillStyle=shade(c,.2); ctx.strokeStyle=shade(c,-.45); ctx.lineWidth=Math.max(1,s*.06); ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill(); ctx.stroke();
+      if(/headlight/.test(p.id) && s>=6){ const d=[[0,-1],[1,0],[0,1],[-1,0]][p.rot], L=Math.max(4,s*.32); ctx.lineWidth=Math.max(1.5,s*.08); ctx.lineCap="round";
+        ctx.beginPath(); ctx.moveTo(cx+d[0]*r,cy+d[1]*r); ctx.lineTo(cx+d[0]*(r+L),cy+d[1]*(r+L)); ctx.stroke(); }
+      ctx.restore(); }
+    // doors: black "marching ants" on a white underlay, along the top (0) or left (1) edge of Cell
+    ctx.save(); ctx.lineCap="butt"; const dw=Math.max(2,Math.min(5,s*.16)), dash=Math.max(2,s*.12);
+    for(const pass of [0,1]){ ctx.lineWidth=dw; ctx.strokeStyle=pass?"#000":"#fff"; ctx.setLineDash(pass?[dash,dash]:[]); ctx.lineDashOffset=pass?-antOffset*dash/3:0; ctx.beginPath();
+      for(const d of ship.doors){ const [x,y]=toScreen(d.Cell[0],d.Cell[1]);
+        if(d.Orientation===1){ ctx.moveTo(x,y+s*.15); ctx.lineTo(x,y+s*.85); } else { ctx.moveTo(x+s*.15,y); ctx.lineTo(x+s*.85,y); } }
+      ctx.stroke(); }
+    ctx.restore();
+  } else {
+    const base=roofColor();
+    for(const p of ship.parts){ if(isExternal(p)) continue; if(SHAPES[p.id]) drawShape(p, extTint(p,base), shade(base,-.55), shade(base,-.5)); else rect(fullRect(p), extTint(p,base), null); }
+    // hull outline
+    ctx.strokeStyle=shade(base,-.55); ctx.lineWidth=Math.max(1,s*.06);
+    for(const p of ship.parts) if(!SHAPES[p.id]) for(let i=0;i<p.w;i++) for(let j=0;j<p.h;j++){ const cx=p.x+i, cy=p.y+j; const [x,y]=toScreen(cx,cy);
+      for(const [dx,dy,x1,y1,x2,y2] of [[1,0,1,0,1,1],[-1,0,0,0,0,1],[0,1,0,1,1,1],[0,-1,0,0,1,0]]) if(!ship.cell.get(cx+dx,cy+dy)){ ctx.beginPath(); ctx.moveTo(x+x1*s,y+y1*s); ctx.lineTo(x+x2*s,y+y2*s); ctx.stroke(); } }
+    for(const p of ship.parts){ if(!isExternal(p)) continue; const c=CAT[p.cat].color; rect(p,c,shade(c,-.4),Math.max(0,s*.06)); }
+  }
+  drawOverlays();
+}
+
+function hexRGB(hex){ const n=parseInt(hex.slice(1),16); return [n>>16,(n>>8)&255,n&255]; }
+function mixRGB(a,b,t){ return a.map((v,i)=>Math.round(v+(b[i]-v)*t)); }
+function makeBitmap(m){
+  const key=m+(document.documentElement.dataset.theme||"")+matchMedia("(prefers-color-scheme: dark)").matches;
+  if(!ship.bmp[key]){
+    const c=document.createElement("canvas"); c.width=ship.GW; c.height=ship.GH; const x=c.getContext("2d"), im=x.createImageData(ship.GW,ship.GH);
+    const roof=hexRGB(roofColor()), cols=ship.parts.map(p=>{ const base=hexRGB(colorOf(p));
+      if(m==="interior") return mixRGB(base,[255,255,255],p.cat==="heat"&&/pipe/.test(p.id)?.2:.35);
+      if(p.cat==="weapon"||p.cat==="flight"||/radiator/.test(p.id)) return base;
+      return p.cat==="armor"?mixRGB(roof,[0,0,0],.3):p.cat==="structure"?mixRGB(roof,[0,0,0],.5):roof; });
+    for(let i=0;i<ship.grid.length;i++){ const n=ship.grid[i]; if(!n) continue; const c3=cols[n-1]; im.data.set([c3[0],c3[1],c3[2],255],i*4); }
+    x.putImageData(im,0,0); ship.bmp[key]=c;
+  }
+  return ship.bmp[key];
+}
+function drawBitmap(){
+  const [x,y]=toScreen(ship.bounds.minX,ship.bounds.minY);
+  ctx.save(); ctx.imageSmoothingEnabled=false; ctx.drawImage(makeBitmap(mode),x,y,ship.GW*cam.s,ship.GH*cam.s); ctx.restore();
+}
+function zonesOf(id,x,y,rot,flip){
+  const Z=ZONES[id]; if(!Z) return [];
+  const R=(px,py)=>{ for(let k=0;k<rot;k++){ const t=px; px=-py; py=t; } return [px,py]; };
+  const rr=(rx,ry,rw,rh)=>{ if(flip) rx=Z.W-rx-rw; const a=R(rx,ry), b=R(rx+rw,ry+rh); return [Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])]; };
+  const p=rr(...Z.p), ox=x-p[0], oy=y-p[1];
+  return Z.z.map(([tag,r,o])=>{ const q=rr(...r); return {tag,o,x0:q[0]+ox,y0:q[1]+oy,x1:q[2]+ox,y1:q[3]+oy}; });
+}
+function forCells(z,fn){ const L=areaHalf()+2; for(let x=Math.max(z.x0,-L);x<Math.min(z.x1,L);x++) for(let y=Math.max(z.y0,-L);y<Math.min(z.y1,L);y++) fn(x,y); }
+const pbOf=id=>(ZONES[id]&&ZONES[id].t)||["default"];
+const zoneWord=id=>{ const c=catOf(id); return (c==="flight"||/radiator/.test(id))?"exhaust zone":c==="weapon"?"firing lane":"clearance zone"; };
+function zoneProblem(h,ignore){
+  const skip=new Set([...ignore,...(h.hits||[])]), name=i=>pretty(ship.parts[i].id);
+  for(const z of zonesOf(h.id,h.x,h.y,h.rot,false)){ let bad=-1;
+    forCells(z,(cx,cy)=>{ if(bad>=0) return; const q=ship.cell.get(cx,cy); if(q && !skip.has(q.i) && pbOf(q.id).includes(z.tag)) bad=q.i; });
+    if(bad>=0) return `its ${zoneWord(h.id)} is blocked by ${name(bad)}`; }
+  const tags=pbOf(h.id);
+  for(let i=0;i<h.w;i++) for(let j=0;j<h.h;j++){ const a=ship.zoneAt&&ship.zoneAt.get((h.x+i)+","+(h.y+j)); if(!a) continue;
+    for(const [o,tag] of a) if(!skip.has(o) && tags.includes(tag)) return `it’s inside the ${zoneWord(ship.parts[o].id)} of ${name(o)}`; }
+  return "";
+}
+function ghostWhy(g,verb){ const w=g.why||(g.twin&&g.twin.why);
+  return `Can’t ${verb} there: `+(w?w+".":(g.twin?"it’s outside the build area or overlaps its own mirror twin.":"it’s outside the build area.")); }
+function drawZones(zs,cat,alpha){
+  const s=cam.s, col="#D93A3A"; ctx.save(); // all no-build zones in red
+  for(const z of zs){ const [x,y]=toScreen(z.x0,z.y0), w=(z.x1-z.x0)*s, h=(z.y1-z.y0)*s, tall=z.tag==="tall", a=tall?alpha*.35:alpha;
+    if(cat==="shield" && z.o) continue; // shield emitter is drawn as part of the module itself
+    ctx.globalAlpha=a; ctx.fillStyle=col; ctx.fillRect(x,y,w,h);
+    ctx.globalAlpha=Math.min(1,a*4); ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash(tall?[2,4]:[4,3]); ctx.strokeRect(x+.5,y+.5,w-1,h-1); }
+  ctx.restore();
+}
+// slanted armor/structure outlines at rotation 0 (from the community part table), rotated clockwise like the game
+const SHAPES=(()=>{ const W1=[[1,0],[0,1],[1,1]], T=[[1,1],[0,1],[.5,.5]], L2=[[1,0],[1,2],[0,2]], L3=[[1,0],[1,3],[0,3]];
+  return {"cosmoteer.armor_wedge":{p:W1},"cosmoteer.structure_wedge":{p:W1},"cosmoteer.armor_tri":{p:T},"cosmoteer.structure_tri":{p:T},
+    "cosmoteer.armor_1x2_wedge":{p:L2},"cosmoteer.structure_1x2_wedge":{p:L2},"cosmoteer.armor_1x3_wedge":{p:L3},"cosmoteer.structure_1x3_wedge":{p:L3},
+    "cosmoteer.armor_structure_hybrid_1x1":{p:W1,h:1},"cosmoteer.armor_structure_hybrid_1x2":{p:L2,h:1},"cosmoteer.armor_structure_hybrid_1x3":{p:L3,h:1},"cosmoteer.armor_structure_hybrid_tri":{p:T,h:1}}; })();
+function shapePoints(p){
+  const S=SHAPES[p.id], def=PARTS[p.id], w0=def.s[0], h0=def.s[1];
+  let pts=S.p.map(([x,y])=>[p.flip?w0-x:x,y]), bx=[[0,0],[w0,h0]];
+  for(let k=0;k<p.rot;k++){ pts=pts.map(([x,y])=>[-y,x]); bx=bx.map(([x,y])=>[-y,x]); }
+  const mx=Math.min(bx[0][0],bx[1][0]), my=Math.min(bx[0][1],bx[1][1]);
+  return pts.map(([x,y])=>[p.x+x-mx,p.y+y-my]);
+}
+function drawShape(p,fill,stroke,hybridBase){
+  const s=cam.s;
+  if(SHAPES[p.id].h){ const [x,y]=toScreen(p.x,p.y); ctx.fillStyle=hybridBase; ctx.fillRect(x,y,p.w*s,p.h*s); }
+  ctx.beginPath(); shapePoints(p).forEach(([gx,gy],k)=>{ const [x,y]=toScreen(gx,gy); k?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill(); if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=1; ctx.stroke(); }
+}
+const extTint=(p,base)=>p.cat==="armor"?shade(base,-.3):p.cat==="structure"?shade(base,-.5):base; // exterior: structure darkest, then armor
+// structure drawn like a no-build zone (see-through fill, dashed edge) but in dark gray
+function drawLattice(p){
+  const s=cam.s, dark=getComputedStyle(document.documentElement).colorScheme==="dark", col=dark?"#8A97A3":CAT.structure.color;
+  ctx.save(); ctx.beginPath();
+  if(SHAPES[p.id]) shapePoints(p).forEach(([gx,gy],k)=>{ const [x,y]=toScreen(gx,gy); k?ctx.lineTo(x,y):ctx.moveTo(x,y); }), ctx.closePath();
+  else { const [x,y]=toScreen(p.x,p.y); ctx.rect(x+.5,y+.5,p.w*s-1,p.h*s-1); }
+  ctx.globalAlpha=.22; ctx.fillStyle=col; ctx.fill();
+  ctx.globalAlpha=.75; ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.restore();
+}
+// shields: draw the base plus its emitter row as one block (the save file only stores the base)
+function fullRect(p){
+  if(p.cat!=="shield") return p; const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip).filter(z=>z.o); if(!zs.length) return p;
+  let x0=p.x,y0=p.y,x1=p.x+p.w,y1=p.y+p.h; for(const z of zs){ x0=Math.min(x0,z.x0); y0=Math.min(y0,z.y0); x1=Math.max(x1,z.x1); y1=Math.max(y1,z.y1); }
+  return {x:x0,y:y0,w:x1-x0,h:y1-y0};
+}
+// size shown in the module list: the whole module, including a shield's emitter row
+function fullSize(id){ const s=PARTS[id].s; if(catOf(id)!=="shield") return s; const r=fullRect({id,x:0,y:0,w:s[0],h:s[1],rot:0,flip:false,cat:"shield"}); return [r.w,r.h]; }
+// ---- overclock: stored per module as a "thermal_overclock" toggle (0 = off, 1 = on) ----
+const OC_PARTS=new Set(["cosmoteer.cannon_deck", "cosmoteer.cannon_large", "cosmoteer.cannon_med", "cosmoteer.chaingun", "cosmoteer.disruptor", "cosmoteer.engine_room", "cosmoteer.factory_ammo", "cosmoteer.factory_coil", "cosmoteer.factory_coil2", "cosmoteer.factory_emp", "cosmoteer.factory_he", "cosmoteer.factory_mine", "cosmoteer.factory_nuke", "cosmoteer.factory_processor", "cosmoteer.factory_steel", "cosmoteer.factory_thermal", "cosmoteer.factory_tristeel", "cosmoteer.factory_uranium", "cosmoteer.fire_extinguisher", "cosmoteer.flak_cannon_large", "cosmoteer.ion_beam_emitter", "cosmoteer.laser_blaster_large", "cosmoteer.laser_blaster_small", "cosmoteer.mining_laser_small", "cosmoteer.point_defense", "cosmoteer.power_storage", "cosmoteer.railgun_launcher", "cosmoteer.reactor_large", "cosmoteer.reactor_med", "cosmoteer.reactor_small", "cosmoteer.sensor_array", "cosmoteer.shield_gen_large", "cosmoteer.shield_gen_small", "cosmoteer.thruster_boost", "cosmoteer.thruster_huge", "cosmoteer.thruster_large", "cosmoteer.thruster_med", "cosmoteer.thruster_rocket_extender", "cosmoteer.thruster_rocket_nozzle", "cosmoteer.thruster_small", "cosmoteer.thruster_small_2way", "cosmoteer.thruster_small_3way", "cosmoteer.tractor_beam_emitter"]);
+const withOC=(n,o)=>{ if(o.OC!==undefined) n.OC=o.OC; return n; };
+function readOverclock(tree,parts){
+  const ent=tree.e.find(e=>e[0]==="PartUIToggleStates"); if(!ent||ent[1].T!==2) return;
+  const by=new Map(parts.map(p=>[p._o,p]));
+  for(const n of ent[1].a){ if(n.T!==3) continue; const K=n.e.find(e=>e[0]==="Key"), V=n.e.find(e=>e[0]==="Value");
+    if(!K||!V||K[1].T!==2||K[1].a.length<2) continue; const [pm,tg]=K[1].a; if(pm.T!==3||tg.T!==1) continue;
+    let name; try{ name=lenStr(tg.b); }catch{ continue; } if(name!=="thermal_overclock") continue;
+    const p=by.get(rawPkey(pm)); if(p && V[1].T===1 && V[1].b.length===4) p.OC=new DataView(V[1].b.buffer,V[1].b.byteOffset,4).getUint32(0,true)?1:0; }
+}
+function writeOverclock(tree){
+  let ent=tree.e.find(e=>e[0]==="PartUIToggleStates"); if(!ent){ ent=["PartUIToggleStates",N.unset()]; tree.e.push(ent); }
+  const keep=ent[1].T===2?ent[1].a.filter(n=>{ try{ const K=n.e.find(e=>e[0]==="Key")[1]; return lenStr(K.a[1].b)!=="thermal_overclock"; }catch{ return true; } }):[];
+  for(const p of ship.d.Parts) if(p.OC===0||p.OC===1)
+    keep.push({T:3,e:[["Key",{T:2,a:[partNode(p.ID,p.Location[0],p.Location[1],p.Rotation|0,!!p.FlipX),N.str("thermal_overclock")]}],["Value",N.u32(p.OC)]]});
+  ent[1]=keep.length?{T:2,a:keep}:N.unset();
+}
+function setOC(v){
+  if(sel<0) return; const p=ship.d.Parts[sel]; if(!OC_PARTS.has(p.ID)) return; const tw=twinOf(sel), P=ship.d.Parts.slice(), keep=sel;
+  for(const i of [sel,tw]) if(i>=0 && OC_PARTS.has(P[i].ID)) P[i]={...P[i],OC:v};
+  commit(P, v?"Overclocked.":"Overclock off."); sel=keep; hint(); draw();
+}
+function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
+function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
+function drawCross(){
+  const [cx,cy]=toScreen(0,0), k=Math.max(9,Math.min(18,cam.s*.7));
+  ctx.save(); ctx.lineWidth=3; ctx.strokeStyle=css("--paper"); ctx.globalAlpha=.9;
+  ctx.beginPath(); ctx.moveTo(cx-k,cy); ctx.lineTo(cx+k,cy); ctx.moveTo(cx,cy-k); ctx.lineTo(cx,cy+k); ctx.stroke();
+  ctx.lineWidth=1.5; ctx.strokeStyle=css("--warn"); ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.moveTo(cx-k,cy); ctx.lineTo(cx+k,cy); ctx.moveTo(cx,cy-k); ctx.lineTo(cx,cy+k); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,3.5,0,7); ctx.stroke(); ctx.restore();
+}
+function drawArea(){
+  const a=areaHalf(), [ax,ay]=toScreen(-a,-a), [bx,by]=toScreen(a,a);
+  ctx.save(); ctx.strokeStyle=css("--warn"); ctx.globalAlpha=.85; ctx.lineWidth=2; ctx.setLineDash([10,6]);
+  ctx.strokeRect(ax,ay,bx-ax,by-ay); ctx.restore();
+  drawCross();
+}
+function drawOverlays(){
+  const s=cam.s, r=stage.getBoundingClientRect(), acc=css("--accent");
+  drawCross();
+  if(ship.zlist) for(const [i,zs] of ship.zlist) if(i!==(drag&&drag.moved?drag.i:-1)){ const sh=ship.parts[i].cat; drawZones($("showZones").checked?zs:zs.filter(z=>z.o&&sh==="shield"),sh,.12); }
+  if(mirror.on){ ctx.save(); ctx.strokeStyle=acc; ctx.globalAlpha=.7; ctx.lineWidth=1.5; ctx.setLineDash([8,6]); ctx.beginPath();
+    if(mirror.axis==="lr"){ const [x]=toScreen(mirror.c2/2,0); ctx.moveTo(x,0); ctx.lineTo(x,r.height); }
+    else if(mirror.axis==="tb"){ const [,y]=toScreen(0,mirror.c2/2); ctx.moveTo(0,y); ctx.lineTo(r.width,y); }
+    else { const L=2000, sg=mirror.axis==="ne"?-1:1, a=toScreen(-L,sg*-L+mirror.c), b=toScreen(L,sg*L+mirror.c); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    ctx.stroke(); ctx.restore(); }
+  if(ship.parts.length){ const b=ship.bounds, X0=(b.minX+b.maxX)/2, Y0=(b.minY+b.maxY)/2, k=((+(ship.d.FlightDirection??1))+7)%8, ang=k*Math.PI/4;
+    const dx=Math.sin(ang), dy=-Math.cos(ang);
+    // farthest hull point in the flight direction, so the arrow sits just outside the ship
+    if(!ship._front||ship._front.k!==k){ let m=-Infinity; for(const p of ship.parts) for(const [qx,qy] of [[p.x,p.y],[p.x+p.w,p.y],[p.x,p.y+p.h],[p.x+p.w,p.y+p.h]]){ const v=(qx-X0)*dx+(qy-Y0)*dy; if(v>m) m=v; } ship._front={k,m}; }
+    const [sx,sy]=toScreen(X0+dx*ship._front.m,Y0+dy*ship._front.m), ax=sx+dx*10, ay=sy+dy*10, tx=ax+dx*46, ty=ay+dy*46;
+    ctx.save(); ctx.lineCap="round"; ctx.lineJoin="round";
+    for(const [col,lw] of [[css("--paper"),7],[acc,3.5]]){ ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.globalAlpha=.9; ctx.beginPath();
+      ctx.moveTo(ax,ay); ctx.lineTo(tx,ty);
+      ctx.moveTo(tx-(dx*14-dy*9),ty-(dy*14+dx*9)); ctx.lineTo(tx,ty); ctx.lineTo(tx-(dx*14+dy*9),ty-(dy*14-dx*9)); ctx.stroke(); }
+    ctx.restore(); }
+  const box=(x0,y0,w,h,stroke,fill,dash)=>{ const [x,y]=toScreen(x0,y0); ctx.save(); if(fill){ ctx.fillStyle=fill; ctx.fillRect(x,y,w*s,h*s); }
+    ctx.strokeStyle=stroke; ctx.lineWidth=2; if(dash) ctx.setLineDash([5,4]); ctx.strokeRect(x-1,y-1,w*s+2,h*s+2); ctx.restore(); };
+  if(sel>=0 && ship.parts[sel]){ const p=ship.parts[sel], fp=fullRect(p); box(fp.x,fp.y,fp.w,fp.h,acc,null,false);
+    const tw=twinOf(sel); if(tw>=0 && tw!==sel){ const q=ship.parts[tw]; box(q.x,q.y,q.w,q.h,acc,null,true); } }
+  const doorLine=(d,col,w,dash)=>{ const [x,y]=toScreen(d.Cell[0],d.Cell[1]); ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineCap="round"; if(dash) ctx.setLineDash(dash);
+    ctx.beginPath(); if(d.Orientation===1){ ctx.moveTo(x,y+s*.1); ctx.lineTo(x,y+s*.9); } else { ctx.moveTo(x+s*.1,y); ctx.lineTo(x+s*.9,y); } ctx.stroke(); ctx.restore(); };
+  if(selDoor>=0 && ship.d.Doors[selDoor]){ const d=ship.d.Doors[selDoor]; doorLine(d,acc,Math.max(5,s*.25));
+    if(mirror.on){ const tw=doorIndex(mirrorDoor(d)); if(tw>=0&&tw!==selDoor) doorLine(ship.d.Doors[tw],acc,Math.max(5,s*.25),[4,4]); } }
+  if(doorGhost) for(const g of [doorGhost,doorGhost.twin].filter(Boolean)) doorLine(g.d,(g.remove||!g.ok)?css("--warn"):acc,Math.max(4,s*.2),(g.ok&&!g.remove)?null:[4,3]);
+  // flame marker on overclocked modules
+  if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
+    ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
+    ctx.moveTo(cx,cy-r*1.3); ctx.bezierCurveTo(cx+r*1.1,cy-r*.2,cx+r*.95,cy+r,cx,cy+r); ctx.bezierCurveTo(cx-r*.95,cy+r,cx-r*1.1,cy-r*.2,cx,cy-r*1.3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="#FFD23F"; ctx.beginPath(); ctx.arc(cx,cy+r*.35,r*.42,0,7); ctx.fill(); ctx.restore(); }
+  if(ghost){ const bad=css("--warn");
+    for(const g of [ghost, ghost.twin].filter(Boolean)) for(const i of g.hits||[]){ const q=ship.parts[i]; if(!q||isHull(q.id)) continue;
+      const [qx,qy]=toScreen(q.x,q.y); ctx.save(); ctx.fillStyle=bad; ctx.globalAlpha=.18; ctx.fillRect(qx,qy,q.w*s,q.h*s); ctx.restore(); box(q.x,q.y,q.w,q.h,bad,null,true); }
+    for(const g of [ghost, ghost.twin].filter(Boolean)){
+      drawZones(zonesOf(g.id,g.x,g.y,g.rot,false),catOf(g.id),.2);
+      const c=g.ok?CAT[catOf(g.id)].color:bad; ctx.save(); ctx.globalAlpha=.5; const fr=fullRect({...g,cat:catOf(g.id),flip:false}), [x,y]=toScreen(fr.x,fr.y); ctx.fillStyle=c; ctx.fillRect(x,y,fr.w*s,fr.h*s); ctx.restore();
+      { const fr=fullRect({...g,cat:catOf(g.id),flip:false}); box(fr.x,fr.y,fr.w,fr.h,g.ok?shade(CAT[catOf(g.id)].color,-.4):bad,null,true); }
+      if(s>=8){ const [cx,cy]=toScreen(g.x+g.w/2,g.y+g.h/2), dir=[[0,-1],[1,0],[0,1],[-1,0]][g.rot], L=Math.min(g.w,g.h)*s*.35;
+        ctx.save(); ctx.strokeStyle=css("--ink"); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+dir[0]*L,cy+dir[1]*L); ctx.stroke(); ctx.restore(); } } }
+}
+// ---------- stats panel ----------
+const fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:0});
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function renderStats(){
+  const d=ship.d, P=ship.parts;
+  document.getElementById("sName").textContent=d.Name||"Unnamed ship";
+  document.getElementById("sBy").textContent=(d.Author?"by "+d.Author+" · ":"")+(d.ShipRulesID||"")+(d.Version!=null?" · save v"+d.Version:"");
+  let cost=0,noCost=0,mass=0,crew=0; const by=new Map();
+  for(const p of P){ const def=PARTS[p.id];
+    if(def&&typeof def.c==="number") cost+=def.c*1000; else noCost++;
+    if(def&&typeof def.m==="number") mass+=def.m;
+    crew+=CREW_CAP[p.id]||0;
+    const e=by.get(p.id)||{n:0,cat:p.cat,c:def&&def.c}; e.n++; by.set(p.id,e); }
+  const b=ship.bounds, heat=P.filter(p=>p.cat==="heat").length;
+  const st=[["Parts",fmt(P.length)],["Cost (credits)",fmt(cost)+(noCost?"+":"")],["Crew capacity",fmt(crew)],["Crew required",null],
+            ["Footprint",P.length?`${b.maxX-b.minX} × ${b.maxY-b.minY}`:"—"],["Mass",fmt(mass*1000)],["Heat parts",fmt(heat)],["Overclocked",fmt(P.filter(p=>p.oc===1).length)],["Doors",fmt(ship.doors.length)]];
+  document.getElementById("stats").innerHTML=st.map(([k,v])=>`<div><dt>${k}</dt><dd class="${v==null?"na":"num"}">${v==null?"Needs game data":v}</dd></div>`).join("");
+  const notes=[], mods=new Set(P.filter(p=>!p.id.startsWith("cosmoteer.")).map(p=>p.id.split(".")[0]));
+  if(mods.size) notes.push(`Uses modded parts (${[...mods].map(esc).join(", ")}). The game will need those mods to load this ship.`);
+  const unk=P.filter(p=>p.id.startsWith("cosmoteer.")&&!p.known).length;
+  if(unk) notes.push(`${unk} vanilla part${unk>1?"s":""} not in the size table, drawn as 1×1 with hatching.`);
+  if(noCost) notes.push(`${noCost} part${noCost>1?"s have":" has"} no price data, so the cost shown is a minimum.`);
+  document.getElementById("notes").innerHTML=notes.map(n=>`<li>${n}</li>`).join("");
+  const used=new Set(P.map(p=>p.cat));
+  document.getElementById("legend").innerHTML=CATS.filter(([k])=>used.has(k)).map(([k,n,c])=>`<span><i class="sw" style="background:${c}"></i>${n}</span>`).join("");
+  const rows=[...by].sort((a,b)=>CATS.findIndex(c=>c[0]===a[1].cat)-CATS.findIndex(c=>c[0]===b[1].cat)||b[1].n-a[1].n);
+  document.getElementById("plist").innerHTML="<tr><th>Part</th><th class='r'>Qty</th><th class='r'>Cost</th></tr>"+
+    rows.map(([id,e])=>`<tr><td><i class="sw" style="background:${CAT[e.cat].color}"></i>${esc(id.replace(/^cosmoteer\./,""))}</td><td class="r">${e.n}</td><td class="r">${typeof e.c==="number"?fmt(e.c*1000*e.n):"—"}</td></tr>`).join("");
+}
+
+// ---------- raw tree (lossless) + encoder + PNG writer ----------
+function rawParse(u){
+  let p=0; const rb=()=>{ if(p>=u.length) throw new Error("Ship data ended early."); return u[p++]; };
+  const varint=()=>{ let b=rb(),c=1; if(b&1){c++; if(b&2){c++; if(b&4)c++;}} for(let i=1;i<c;i++) b=(b|(rb()<<(i*8)))>>>0; return b>>>Math.min(c,3); };
+  const rstr=()=>{ let n=0,i=0; for(;;){ const x=rb(); n|=(x&127)<<(7*i); if(!(x&128)||i>2) break; i++; } const s=new TextDecoder("latin1").decode(u.subarray(p,p+n)); p+=n; return s; };
+  function node(){
+    const t=rb();
+    if(t===0||t===5) return {T:t};
+    if(t===1){ const n=varint(); const b=u.slice(p,p+n); p+=n; return {T:1,b}; }
+    if(t===2){ const n=varint(), a=[]; for(let i=0;i<n;i++) a.push(node()); return {T:2,a}; }
+    if(t===3){ const n=varint(), e=[]; for(let i=0;i<n;i++){ const k=rstr(); e.push([k,node()]); } return {T:3,e}; }
+    if(t===4){ const s=rb(); return s===255?{T:4,s,id:varint()}:{T:4,s}; }
+    throw new Error("Unrecognised node type "+t);
+  }
+  return node();
+}
+function writeVarint(out,val){
+  const c = val<128?1:val<16384?2:val<2097152?3:4;
+  let v = val*Math.pow(2,Math.min(c,3));
+  if(c===2) v+=1; else if(c===3) v+=3; else if(c===4) v+=7;
+  for(let i=0;i<c;i++){ out.push(v%256); v=Math.floor(v/256); }
+}
+function strBytes(s){ const t=[]; let n=s.length; while(n>=0x80){ t.push((n|0x80)&255); n>>=7; } t.push(n); for(const ch of s) t.push(ch.charCodeAt(0)&255); return t; }
+class ByteBuf{ constructor(){ this.a=new Uint8Array(1<<16); this.n=0; } push(x){ if(this.n>=this.a.length){ const b=new Uint8Array(this.a.length*2); b.set(this.a); this.a=b; } this.a[this.n++]=x; } bytes(){ return this.a.subarray(0,this.n); } }
+function rawEncode(node,out=new ByteBuf()){
+  out.push(node.T);
+  if(node.T===0||node.T===5) return out;
+  if(node.T===1){ writeVarint(out,node.b.length); for(const x of node.b) out.push(x); return out; }
+  if(node.T===2){ writeVarint(out,node.a.length); for(const x of node.a) rawEncode(x,out); return out; }
+  if(node.T===3){ writeVarint(out,node.e.length); for(const [k,v] of node.e){ for(const x of strBytes(k)) out.push(x); rawEncode(v,out); } return out; }
+  if(node.T===4){ out.push(node.s); if(node.s===255) writeVarint(out,node.id); return out; }
+  throw new Error("bad node");
+}
+// typed data-node builders
+const N = {
+  unset: ()=>({T:0}),
+  str: s=>({T:1,b:new Uint8Array(strBytes(s))}),
+  bool: v=>({T:1,b:new Uint8Array([v?1:0])}),
+  u32: v=>{ const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,v>>>0,true); return {T:1,b}; },
+  i32: v=>{ const b=new Uint8Array(4); new DataView(b.buffer).setInt32(0,v,true); return {T:1,b}; },
+  loc: (x,y)=>{ const b=new Uint8Array(8), d=new DataView(b.buffer); d.setInt32(0,x,true); d.setInt32(4,y,true); return {T:1,b}; },
+};
+const intNode = v => v<0?N.i32(v):N.u32(v);
+function partNode(id,x,y,rot,flip){
+  return {T:3,e:[["FlipX",N.bool(flip)],["ID",N.str(id)],["Location",N.loc(x,y)],["Rotation",intNode(rot)]]};
+}
+function setEntry(map,key,val){ const e=map.e.find(x=>x[0]===key); if(e) e[1]=val; else map.e.push([key,val]); }
+
+async function streamBytes(bytes,ctor,fmt){
+  const s=new Blob([bytes]).stream().pipeThrough(new ctor(fmt));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+let CRC_T=null;
+function crc32(u8){ if(!CRC_T){ CRC_T=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; CRC_T[n]=c>>>0; } }
+  let c=0xFFFFFFFF; for(const b of u8) c=CRC_T[(c^b)&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+async function encodePNG(w,h,rgba){
+  const row=w*4, raw=new Uint8Array((row+1)*h);
+  for(let y=0;y<h;y++){ raw[y*(row+1)]=0; raw.set(rgba.subarray(y*row,(y+1)*row),y*(row+1)+1); }
+  const idat=await streamBytes(raw,CompressionStream,"deflate");
+  const chunk=(type,data)=>{ const out=new Uint8Array(12+data.length), dv=new DataView(out.buffer);
+    dv.setUint32(0,data.length); for(let i=0;i<4;i++) out[4+i]=type.charCodeAt(i); out.set(data,8);
+    dv.setUint32(8+data.length,crc32(out.subarray(4,8+data.length))); return out; };
+  const ihdr=new Uint8Array(13), d=new DataView(ihdr.buffer); d.setUint32(0,w); d.setUint32(4,h); ihdr[8]=8; ihdr[9]=6; ihdr[10]=0; ihdr[11]=0; ihdr[12]=0;
+  const parts=[new Uint8Array([137,80,78,71,13,10,26,10]),chunk("IHDR",ihdr),chunk("IDAT",idat),chunk("IEND",new Uint8Array(0))];
+  return new Blob(parts,{type:"image/png"});
+}
+// tree -> .ship.png. drawThumb(ctx,w,h) paints the picture; data goes in the RGB low bits.
+async function writeShipPNG(tree, drawThumb){
+  const raw=rawEncode(tree).bytes();
+  const gz=await streamBytes(raw,CompressionStream,"gzip");
+  const payload=new Uint8Array(9+gz.length); payload.set([67,79,83,77,79,83,72,73,80]); payload.set(gz,9); // "COSMOSHIP"
+  const all=new Uint8Array(4+payload.length); new DataView(all.buffer).setUint32(0,payload.length); all.set(payload,4);
+  let side=256; while(side*side*3 < all.length*8) side*=2;
+  let rgba;
+  if(typeof document!=="undefined"){
+    const c=document.createElement("canvas"); c.width=c.height=side; const x=c.getContext("2d");
+    drawThumb && drawThumb(x,side,side); rgba=new Uint8Array(x.getImageData(0,0,side,side).data);
+  } else rgba=new Uint8Array(side*side*4).fill(128);
+  for(let i=3;i<rgba.length;i+=4) rgba[i]=255; // opaque, so RGB survives any viewer
+  for(let bit=0;bit<all.length*8;bit++){
+    const v=(all[bit>>3]>>(bit&7))&1, px=Math.floor(bit/3), c=bit%3, idx=px*4+c;
+    rgba[idx]=(rgba[idx]&254)|v;
+  }
+  return encodePNG(side,side,rgba);
+}
+
+// ---------- silhouette builder ----------
+const sil={on:false,img:null,rot:null,turns:0,overlay:true,W:0,H:0,x0:0,y0:0,mask:null,name:""};
+const $=id=>document.getElementById(id);
+function rotatedCanvas(){
+  const im=sil.img, t=sil.turns%8, c=document.createElement("canvas");
+  const sw=im.naturalWidth||im.width, sh=im.naturalHeight||im.height, a=t*Math.PI/4, C=Math.abs(Math.cos(a)), S=Math.abs(Math.sin(a));
+  c.width=Math.ceil(sw*C+sh*S); c.height=Math.ceil(sw*S+sh*C); const x=c.getContext("2d");
+  x.translate(c.width/2,c.height/2); x.rotate(a); x.drawImage(im,-sw/2,-sh/2); return c;
+}
+function hasTransparency(c){
+  const x=c.getContext("2d"), w=Math.min(c.width,256), h=Math.min(c.height,256), t=document.createElement("canvas"); t.width=w; t.height=h;
+  const tx=t.getContext("2d"); tx.drawImage(c,0,0,w,h); const d=tx.getImageData(0,0,w,h).data;
+  let clear=0; for(let i=3;i<d.length;i+=4) if(d[i]<200) clear++; return clear>d.length/4*0.02;
+}
+function buildMask(){
+  const L=+$("silLen").value, thr=+$("silThr").value, inv=$("silInv").checked, rc=sil.rot;
+  const val=(d,i)=>{ const a=d[i*4+3], lum=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+    return sil.alphaMode ? (inv?255-a:a) : (inv?lum*(a/255):(255-lum)*(a/255)); };
+  // crop to the shape so "Length" is the ship's real length, not the picture's
+  if(!sil.probe){ const k=Math.min(1,1024/Math.max(rc.width,rc.height)), c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(rc.width*k)); c.height=Math.max(1,Math.round(rc.height*k)); const x=c.getContext("2d"); x.drawImage(rc,0,0,c.width,c.height);
+    sil.probe={w:c.width,h:c.height,k,d:x.getImageData(0,0,c.width,c.height).data}; }
+  const P=sil.probe; let bx0=P.w,by0=P.h,bx1=-1,by1=-1;
+  for(let y=0;y<P.h;y++) for(let x=0;x<P.w;x++) if(val(P.d,y*P.w+x)>=thr){ if(x<bx0)bx0=x; if(x>bx1)bx1=x; if(y<by0)by0=y; if(y>by1)by1=y; }
+  if(bx1<0){ bx0=0; by0=0; bx1=P.w-1; by1=P.h-1; }
+  const crop={sx:bx0/P.k, sy:by0/P.k, sw:(bx1-bx0+1)/P.k, sh:(by1-by0+1)/P.k}; sil.crop=crop;
+  const big=Math.max(crop.sw,crop.sh), W=Math.max(1,Math.round(L*crop.sw/big)), H=Math.max(1,Math.round(L*crop.sh/big));
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high"; x.drawImage(rc,crop.sx,crop.sy,crop.sw,crop.sh,0,0,W,H);
+  const d=x.getImageData(0,0,W,H).data, m=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++) m[i]= val(d,i)>=thr ? 1 : 0;
+  let pieces=0, kept=m;
+  { // connected pieces (4-neighbour)
+    const lab=new Int32Array(W*H), q=new Int32Array(W*H); let best=0,bestSize=0;
+    for(let s0=0;s0<W*H;s0++){ if(!m[s0]||lab[s0]) continue; pieces++; let h=0,tl=0; q[tl++]=s0; lab[s0]=pieces; let size=0;
+      while(h<tl){ const i=q[h++]; size++; const px=i%W, py=(i/W)|0;
+        if(px>0&&m[i-1]&&!lab[i-1]){lab[i-1]=pieces;q[tl++]=i-1;} if(px<W-1&&m[i+1]&&!lab[i+1]){lab[i+1]=pieces;q[tl++]=i+1;}
+        if(py>0&&m[i-W]&&!lab[i-W]){lab[i-W]=pieces;q[tl++]=i-W;} if(py<H-1&&m[i+W]&&!lab[i+W]){lab[i+W]=pieces;q[tl++]=i+W;} }
+      if(size>bestSize){bestSize=size;best=pieces;} }
+    if($("silBig").checked && pieces>1){ kept=new Uint8Array(W*H); for(let i=0;i<W*H;i++) kept[i]=lab[i]===best?1:0; }
+  }
+  // distance from the outside (4-neighbour), for the armor edge
+  const t=+$("silArmor").value, dist=new Int32Array(W*H).fill(-1), q=new Int32Array(W*H); let h=0,tl=0;
+  for(let i=0;i<W*H;i++){ if(!kept[i]) continue; const px=i%W, py=(i/W)|0;
+    if(px===0||py===0||px===W-1||py===H-1||!kept[i-1]||!kept[i+1]||!kept[i-W]||!kept[i+W]){ dist[i]=1; q[tl++]=i; } }
+  while(h<tl){ const i=q[h++], px=i%W, py=(i/W)|0;
+    for(const [ok,j] of [[px>0,i-1],[px<W-1,i+1],[py>0,i-W],[py<H-1,i+W]]) if(ok&&kept[j]&&dist[j]<0){ dist[j]=dist[i]+1; q[tl++]=j; } }
+  sil.W=W; sil.H=H; sil.x0=-Math.floor(W/2); sil.y0=-Math.floor(H/2); sil.mask=kept; sil.dist=dist; sil.pieces=pieces; sil.armorT=t;
+}
+function silParts(){
+  const out=[]; const {W,H,x0,y0,mask,dist,armorT}=sil;
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){ const k=j*W+i; if(!mask[k]) continue;
+    out.push({ID: dist[k]<=armorT ? "cosmoteer.armor" : "cosmoteer.corridor", Location:[x0+i,y0+j], Rotation:0, FlipX:false}); }
+  return out;
+}
+let silPending=false, silRefit=false;
+function silUpdate(refit){
+  if(!sil.on) return; silRefit=silRefit||refit; if(silPending) return; silPending=true;
+  requestAnimationFrame(()=>{ silPending=false; refit=silRefit; silRefit=false;
+    buildMask();
+    const d={Name:$("shipName").value||"Silhouette hull", Author:"", ShipRulesID:"cosmoteer.terran", Version:3, FlightDirection:+$("front").value, Parts:silParts(), Doors:"Unset", RoofBaseColor:[1,1,1,.5]};
+    ship=buildModel(d); ship.tree=null; ship.orig=new Set(); dirty=true; undoS=[]; redoS=[]; sel=-1; mirrorReset(); editUI(); $("empty").style.display="none"; renderStats(); if(refit) fit(); else draw();
+    const lim=+$("silLimit").value, msgs=[];
+    if(!ship.parts.length) msgs.push("No tiles at this threshold. Move the threshold slider or tick Invert.");
+    if(sil.pieces>1 && !$("silBig").checked) msgs.push(`${sil.pieces} separate pieces. The game treats disconnected parts as separate ships.`);
+    else if(sil.pieces>1) msgs.push(`Kept the largest of ${sil.pieces} pieces.`);
+    if(lim>120) msgs.push("This size needs that mod enabled in the game.");
+    if(ship.parts.length>200000) msgs.push("Very large hull: the download may take a while, and the game may run slowly.");
+    $("silMsg").className="msg"+(msgs.length&&!ship.parts.length?" warn":""); $("silMsg").textContent=`${sil.W} × ${sil.H} tiles. `+msgs.join(" ");
+  });
+}
+function silSyncLimit(){
+  const lim=+$("silLimit").value; for(const id of ["silLen","silLenN"]){ $(id).max=lim; }
+  if(+$("silLen").value>lim){ $("silLen").value=$("silLenN").value=lim; }
+  $("silLen").step = lim>200?2:1;
+}
+function silOpen(file){
+  const url=URL.createObjectURL(file), im=new Image();
+  im.onload=()=>{
+    sil.img=im; sil.turns=0; sil.on=true; sil.rot=rotatedCanvas(); sil.probe=null; sil.alphaMode=hasTransparency(sil.rot);
+    $("sil").hidden=false; $("silSrc").textContent=`${file.name} · ${im.naturalWidth} × ${im.naturalHeight}px · shape taken from ${sil.alphaMode?"opaque pixels":"dark pixels"}`;
+    $("shipName").value=file.name.replace(/\.[^.]+$/,"").slice(0,60);
+    silSyncLimit(); silUpdate(true);
+  };
+  im.onerror=()=>{ $("empty").style.display="grid"; $("empty").innerHTML="<div><strong>Couldn’t open that image</strong>Use a PNG, JPG, WebP or SVG file.</div>"; };
+  im.src=url;
+}
+function silTemplate(){
+  const bin=atob(DEMO_B64), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  return u.buffer;
+}
+async function rawTreeFromPNG(buf){
+  const img=await decodePNG(buf);
+  const chan=i=>img.px[Math.floor(i/3)*img.ch+(i%3)]&1, byteAt=o=>{ let v=0; for(let k=0;k<8;k++) v|=chan(o*8+k)<<k; return v; };
+  const len=((byteAt(0)<<24)|(byteAt(1)<<16)|(byteAt(2)<<8)|byteAt(3))>>>0; let d=new Uint8Array(len); for(let i=0;i<len;i++) d[i]=byteAt(i+4);
+  if(new TextDecoder("latin1").decode(d.subarray(0,9))==="COSMOSHIP") d=d.subarray(9);
+  return rawParse(await inflate(d,"gzip"));
+}
+async function offerFile(blob,filename){
+  if(window.claude && typeof window.claude.use==="function"){
+    const dl=await window.claude.use("downloads").catch(()=>null);
+    if(dl){ try{ await dl.save({filename,data:blob}); return "Saved."; }
+      catch(e){ if(e&&e.code==="declined") return "Download cancelled."; if(e&&e.code==="rate_limited") return "A download prompt is already open."; if(e&&!["unavailable","not_granted","capability_disabled","capability_removed"].includes(e.code)) throw e; } }
+  }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); return "Saved.";
+}
+$("silFile").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) silOpen(f); e.target.value=""; });
+const pair=(a,b,refit)=>{ $(a).addEventListener("input",()=>{ $(b).value=$(a).value; silUpdate(refit); }); $(b).addEventListener("change",()=>{ const v=Math.max(+$(a).min,Math.min(+$(a).max,+$(b).value||0)); $(a).value=$(b).value=v; silUpdate(refit); }); };
+pair("silLen","silLenN",true); pair("silThr","silThrN",false);
+$("silLimit").addEventListener("change",()=>{ $("area").value=$("silLimit").value; silSyncLimit(); silUpdate(true); });
+for(const id of ["silArmor","silInv","silBig"]) $(id).addEventListener("change",()=>silUpdate(false));
+$("silOver").addEventListener("change",()=>{ sil.overlay=$("silOver").checked; draw(); });
+$("silRot45").onclick=()=>{ sil.turns=(sil.turns+1)%8; sil.rot=rotatedCanvas(); sil.probe=null; silUpdate(true); };
+$("silRot").onclick=()=>{ sil.turns=(sil.turns+2)%8; sil.rot=rotatedCanvas(); sil.probe=null; silUpdate(true); };
+$("silClose").onclick=()=>{ sil.on=false; $("sil").hidden=true; draw(); };
+
+// ---------- loading ----------
+async function loadBuffer(buf,label){
+  try{
+    const {d,tree}=await extractShip(buf);
+    if(!d||!Array.isArray(d.Parts)) throw new Error("Ship data was read, but it has no parts list.");
+    sil.on=false; document.getElementById("sil").hidden=true;
+    for(const p of d.Parts) p._o=pkey(p);
+    readOverclock(tree,d.Parts);
+    ship=buildModel(d); ship.tree=tree; ship.orig=new Set(d.Parts.map(p=>p._o));
+    dirty=false; undoS=[]; redoS=[]; sel=-1; cancelTool(true); mirrorReset(); $("shipName").value=d.Name||""; $("front").value=String(d.FlightDirection??1); editUI(""); 
+    document.getElementById("empty").style.display="none";
+    renderStats(); fit();
+  }catch(e){
+    document.getElementById("empty").style.display="grid";
+    document.getElementById("empty").innerHTML=`<div><strong>Couldn’t open ${esc(label||"that file")}</strong>${esc(e.message)}</div>`;
+    console.error(e);
+  }
+}
+document.getElementById("file").addEventListener("change",async e=>{ const f=e.target.files[0]; if(f) loadBuffer(await f.arrayBuffer(),f.name); e.target.value=""; });
+
+["dragenter","dragover"].forEach(t=>stage.addEventListener(t,e=>{e.preventDefault(); stage.classList.add("dropping");}));
+["dragleave","drop"].forEach(t=>stage.addEventListener(t,e=>{e.preventDefault(); stage.classList.remove("dropping");}));
+stage.addEventListener("drop",async e=>{ const f=e.dataTransfer.files[0]; if(f) loadBuffer(await f.arrayBuffer(),f.name); });
+const setMode=m=>{ mode=m; document.getElementById("mInt").setAttribute("aria-pressed",m==="interior"); document.getElementById("mExt").setAttribute("aria-pressed",m==="exterior"); draw(); };
+document.getElementById("mInt").onclick=()=>setMode("interior");
+document.getElementById("mExt").onclick=()=>setMode("exterior");
+document.getElementById("fit").onclick=fit;
+
+// ---------- editor ----------
+let tool=null, toolRot=0, sel=-1, ghost=null, drag=null, undoS=[], redoS=[], selDoor=-1, doorGhost=null, dirty=false;
+const mirror={on:false,axis:"lr",c2:0};
+const tip=$("tip");
+const pkey=p=>`${p.ID}|${p.Location[0]},${p.Location[1]}|${(p.Rotation|0)}|${p.FlipX?1:0}`;
+const isRoof=id=>/roof_/.test(id);
+function footprint(id,rot){ const def=PARTS[id], s=def?def.s:[1,1]; return [s[rot%2], s[(rot+1)%2]]; }
+const pretty=id=>id.replace(/^cosmoteer\./,"").replace(/_/g," ");
+function fits(x,y,w,h,ignore,id,extra){
+  for(let i=0;i<w;i++) for(let j=0;j<h;j++){ const q=ship.cell.get(x+i,y+j); if(q && !ignore.includes(q.i) && !isRoof(q.id) && !isRoof(id)) return false; }
+  if(extra){ const a=extra; if(x<a.x+a.w && a.x<x+w && y<a.y+a.h && a.y<y+h && !(a.x===x&&a.y===y&&a.w===w&&a.h===h)) return false; }
+  return true;
+}
+// mirror geometry: c2 is twice the line's coordinate, so it is always a whole number
+function mirrorReset(){ $("mirror").value="off"; mirror.on=false; }
+function mirrorSetup(){
+  const v=$("mirror").value; mirror.on=v!=="off"; mirror.axis=v==="off"?mirror.axis:v;
+  if(mirror.on && ship){ const b=ship.bounds, has=ship.parts.length, X0=(b.minX+b.maxX)/2, Y0=(b.minY+b.maxY)/2;
+    mirror.c2 = !has?0 : (mirror.axis==="lr"? b.minX+b.maxX : b.minY+b.maxY);
+    mirror.c = !has?0 : Math.round(mirror.axis==="ne"? X0+Y0 : Y0-X0); }
+  draw(); hint();
+}
+function mirrorPos(x,y,w,h,rot){
+  // diagonals: line y=-x+c ("ne") or y=x+c ("nw"); width and height swap, facing reflects
+  if(mirror.axis==="ne") return {x:mirror.c-(y+h), y:mirror.c-(x+w), rot:[1,0,3,2][rot]};
+  if(mirror.axis==="nw") return {x:y-mirror.c, y:x+mirror.c, rot:[3,2,1,0][rot]};
+  if(mirror.axis==="lr") return {x:mirror.c2-x-w, y, rot:(4-rot)%4};
+  return {x, y:mirror.c2-y-h, rot:(6-rot)%4};
+}
+function twinOf(i){
+  if(!mirror.on||!ship||i<0) return -1; const p=ship.parts[i]; if(!p) return -1;
+  const m=mirrorPos(p.x,p.y,p.w,p.h,p.rot); if(m.x===p.x&&m.y===p.y&&m.rot===p.rot) return i;
+  const q=ship.cell.get(m.x,m.y); return q && q.id===p.id && q.x===m.x && q.y===m.y && q.rot===m.rot ? q.i : -1;
+}
+function blankShip(){
+  ship=buildModel({Name:$("shipName").value||"New ship",Author:"",ShipRulesID:"cosmoteer.terran",Version:3,FlightDirection:+$("front").value,Parts:[],Doors:"Unset",RoofBaseColor:[1,1,1,.5]});
+  ship.tree=null; ship.orig=new Set(); $("empty").style.display="none"; renderStats(); cam.x=0; cam.y=0; cam.s=24; draw();
+}
+function rebuild(){ const {d,tree,orig}=ship; ship=buildModel(d); ship.tree=tree; ship.orig=orig; renderStats(); draw(); editUI(); }
+function lockSil(){ if(sil.on){ sil.on=false; $("sil").hidden=true; editMsg("Silhouette locked in. Your edits are kept from here on."); } }
+const snap=()=>({P:ship.d.Parts,D:ship.d.Doors});
+function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length>200) undoS.shift(); redoS=[]; if(next) ship.d.Parts=next; if(doors) ship.d.Doors=doors; lockSil(); rebuild(); if(msg!==undefined) editMsg(msg); }
+function editMsg(m,warn){ $("editMsg").className="msg"+(warn?" warn":""); $("editMsg").textContent=m||""; }
+function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=!(ship&&ship.parts.length); hint(); }
+function hint(){
+  { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } }
+  const h=$("hint"); if(!ship&&!tool){ h.innerHTML=""; return; }
+  const mir=mirror.on?" Mirror is on.":"";
+  if(tool==="door") h.innerHTML=`Placing <b>doors</b>: click a wall between two rooms to add a door, or click a door to remove it. <kbd>Esc</kbd> or right-click to stop.${mir}`;
+  else if(tool) h.innerHTML=`Placing <b>${esc(pretty(tool))}</b>: click to place, <kbd>R</kbd> rotate, <kbd>Esc</kbd> or right-click to stop.${mir}`;
+  else if(sel>=0 && ship.parts[sel]) h.innerHTML=`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move, <kbd>R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
+  else if(selDoor>=0) h.innerHTML=`Door selected: <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
+  else h.innerHTML=`Pick a module to place it, or click a part to select it. Drag empty space to pan.${mir}`;
+}
+// ghost for placing or moving, with its mirror twin
+function makeGhost(id,x,y,rot,ignore,noTwin){
+  const [w,h]=footprint(id,rot); const g={id,x,y,w,h,rot};
+  if(mirror.on && !noTwin){ const m=mirrorPos(x,y,w,h,rot); if(!(m.x===x&&m.y===y&&m.rot===rot)){ const [tw,th]=footprint(id,m.rot); g.twin={id,x:m.x,y:m.y,w:tw,h:th,rot:m.rot}; } }
+  const T=g.twin, clash=!!T && x<T.x+T.w && T.x<x+w && y<T.y+T.h && T.y<y+h;
+  g.ok=!clash&&inArea(x,y,w,h); g.hits=hitsOf(x,y,w,h,ignore,id);
+  if(T){ T.ok=!clash&&inArea(T.x,T.y,T.w,T.h); T.hits=hitsOf(T.x,T.y,T.w,T.h,ignore,id); }
+  for(const hh of [g,g.twin].filter(Boolean)){ const why=zoneProblem(hh,ignore); if(why){ hh.ok=false; hh.why=why; } }
+  if(g.twin && !g.twin.ok) g.ok=false; if(g.twin && !g.ok) g.twin.ok=false;
+  return g;
+}
+const gridAt=e=>{ const r=stage.getBoundingClientRect(); return toGrid(e.clientX-r.left,e.clientY-r.top); };
+function toolGhost(e){ const [gx,gy]=gridAt(e), [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.floor(gx-w/2+.5),Math.floor(gy-h/2+.5),toolRot,[]); }
+const mk=(id,x,y,rot,flip,o)=>{ const p={ID:id,Location:[x,y],Rotation:rot,FlipX:!!flip}; if(o) p._o=o; return p; };
+// ---- replacement rules ----
+// structure/armor under a new part is simply replaced; any other module it touches is removed whole
+// and the tiles the new part doesn't cover become structure. Deleting a module leaves structure;
+// deleting structure or armor leaves empty space.
+const isHull=id=>{ const c=catOf(id); return id==="cosmoteer.corridor"||c==="structure"||c==="armor"; };
+function cellsOf(p){ const [w,h]=footprint(p.ID,p.Rotation|0), out=[]; for(let i=0;i<w;i++) for(let j=0;j<h;j++) out.push([p.Location[0]+i,p.Location[1]+j]); return out; }
+function hitsOf(x,y,w,h,ignore,id){ const s=new Set(); if(isRoof(id)) return s;
+  for(let i=0;i<w;i++) for(let j=0;j<h;j++){ const q=ship.cell.get(x+i,y+j); if(q && !ignore.includes(q.i) && !isRoof(q.id)) s.add(q.i); } return s; }
+function editParts(parts,rm,adds){
+  const R=new Set(rm.filter(i=>i>=0)), fill=new Map(), covered=new Set(), K=(x,y)=>x+","+y;
+  for(const i of R) if(!isHull(parts[i].ID)) for(const c of cellsOf(parts[i])) fill.set(K(...c),c);
+  for(const a of adds){ for(const c of cellsOf(a)) covered.add(K(...c)); if(isRoof(a.ID)) continue;
+    for(const [x,y] of cellsOf(a)){ const q=ship.cell.get(x,y); if(!q||R.has(q.i)||isRoof(q.id)) continue; R.add(q.i); for(const c of cellsOf(parts[q.i])) fill.set(K(...c),c); } }
+  const keep=parts.filter((_,k)=>!R.has(k)), out=[...keep,...adds];
+  for(const [k,[x,y]] of fill) if(!covered.has(k)) out.push(mk("cosmoteer.corridor",x,y,0,false));
+  out.firstAdd=keep.length; return out;
+}
+function replacedModules(g){ let n=0; for(const h of [g,g.twin].filter(Boolean)) for(const i of h.hits||[]) if(!isHull(ship.parts[i].id)) n++; return n; }
+function placeGhost(){
+  if(!ghost) return; if(!ghost.ok){ editMsg(ghostWhy(ghost,"place it"),true); return; }
+  const add=[mk(ghost.id,ghost.x,ghost.y,ghost.rot)]; if(ghost.twin) add.push(mk(ghost.id,ghost.twin.x,ghost.twin.y,ghost.twin.rot));
+  const n=replacedModules(ghost);
+  commit(editParts(ship.d.Parts,[],add), n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); ghost=null;
+}
+function selectTool(id){
+  if(tool===id){ cancelTool(); return; }
+  tool=id; toolRot=0; sel=-1; selDoor=-1; ghost=null; doorGhost=null; if(!ship) blankShip(); renderPalette(); hint(); editMsg("");
+}
+function cancelTool(quiet){ tool=null; ghost=null; doorGhost=null; renderPalette(); if(!quiet){ hint(); draw(); } }
+function removeSel(){
+  if(sel<0) return; const tw=twinOf(sel), hull=isHull(ship.d.Parts[sel].ID);
+  const msg=(tw>=0&&tw!==sel?"Removed it and its mirror twin":"Removed it")+(hull?".":"; the space is now corridor.");
+  commit(editParts(ship.d.Parts,[sel,tw],[]),msg); sel=-1; hint(); draw();
+}
+function rotateSel(){
+  const p=ship.parts[sel]; if(!p) return; const nr=(p.rot+1)%4, [w,h]=footprint(p.id,nr);
+  const nx=Math.round(p.x+p.w/2-w/2), ny=Math.round(p.y+p.h/2-h/2), tw=twinOf(sel), ign=[sel]; if(tw>=0) ign.push(tw);
+  const g=makeGhost(p.id,nx,ny,nr,ign,tw<0||tw===sel);
+  if(!g.ok){ editMsg(ghostWhy(g,"rotate it"),true); return; }
+  movePart(sel,g,tw);
+}
+function movePart(i,g,tw){
+  const parts=ship.d.Parts, old=parts[i], adds=[withOC(mk(old.ID,g.x,g.y,g.rot,old.FlipX,old._o),old)], rm=[i];
+  if(tw>=0 && tw!==i && g.twin){ const o2=parts[tw]; adds.push(withOC(mk(o2.ID,g.twin.x,g.twin.y,g.twin.rot,o2.FlipX,o2._o),o2)); rm.push(tw); }
+  const n=replacedModules(g), next=editParts(parts,rm,adds);
+  commit(next, n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); sel=next.firstAdd; hint(); draw();
+}
+// ---- doors: stored as a tile plus which edge (0 = top, 1 = left) ----
+const doorKey=d=>d.Cell[0]+","+d.Cell[1]+","+d.Orientation;
+function edgeAt(gx,gy){ const cx=Math.floor(gx), cy=Math.floor(gy), fx=gx-cx, fy=gy-cy;
+  const c=[[fx,{Cell:[cx,cy],Orientation:1}],[1-fx,{Cell:[cx+1,cy],Orientation:1}],[fy,{Cell:[cx,cy],Orientation:0}],[1-fy,{Cell:[cx,cy+1],Orientation:0}]].sort((a,b)=>a[0]-b[0])[0];
+  return {dist:c[0],d:c[1]}; }
+function doorIndex(d){ const k=doorKey(d); return ship.d.Doors.findIndex(e=>doorKey(e)===k); }
+function doorOk(d){ const [x,y]=d.Cell, s=d.Orientation===1?[[x-1,y],[x,y]]:[[x,y-1],[x,y]];
+  const [a,b]=s.map(([cx,cy])=>ship.cell.get(cx,cy)), walk=q=>q&&q.cat!=="structure"&&q.cat!=="armor";
+  return !!(walk(a)&&walk(b)&&a.i!==b.i); }
+function mirrorDoor(d){ const [x,y]=d.Cell, o=d.Orientation, c=mirror.c2, k=mirror.c;
+  if(mirror.axis==="ne") return o===0?{Cell:[k-y,k-x-1],Orientation:1}:{Cell:[k-y-1,k-x],Orientation:0};
+  if(mirror.axis==="nw") return o===0?{Cell:[y-k,x+k],Orientation:1}:{Cell:[y-k,x+k],Orientation:0};
+  return mirror.axis==="lr" ? {Cell:o===1?[c-x,y]:[c-x-1,y],Orientation:o} : {Cell:o===0?[x,c-y]:[x,c-y-1],Orientation:o}; }
+function doorHit(gx,gy){ const e=edgeAt(gx,gy); return e.dist<0.22?doorIndex(e.d):-1; }
+function doorHover(e){ const [gx,gy]=gridAt(e), d=edgeAt(gx,gy).d, ex=doorIndex(d)>=0;
+  const g={d,remove:ex,ok:ex||doorOk(d)};
+  if(mirror.on){ const m=mirrorDoor(d); if(doorKey(m)!==doorKey(d)){ const mx=doorIndex(m)>=0; g.twin={d:m,remove:mx,ok:mx||doorOk(m)}; } }
+  doorGhost=g; }
+function doorClick(e){
+  doorHover(e); const g=doorGhost; if(!g) return; let D=ship.d.Doors.slice(); const all=[g,g.twin].filter(Boolean);
+  if(g.remove){ const rm=new Set(all.filter(k=>k.remove).map(k=>doorKey(k.d))); commit(null,"Door removed.",D.filter(x=>!rm.has(doorKey(x)))); }
+  else { if(!g.ok){ editMsg("A door needs a room or corridor on both sides of the wall.",true); return; }
+    for(const k of all) if(!k.remove&&k.ok) D.push({Cell:[...k.d.Cell],ID:"cosmoteer.door",Orientation:k.d.Orientation});
+    commit(null,"",D); }
+  doorHover(e); draw(); }
+function removeDoorSel(){ const d=ship.d.Doors[selDoor]; if(!d) return; const rm=new Set([doorKey(d)]); if(mirror.on) rm.add(doorKey(mirrorDoor(d)));
+  commit(null,rm.size>1?"Removed the door and its mirror twin.":"Door removed.",ship.d.Doors.filter(x=>!rm.has(doorKey(x)))); selDoor=-1; hint(); draw(); }
+function undo(){ if(!undoS.length) return; redoS.push(snap()); const s=undoS.pop(); ship.d.Parts=s.P; ship.d.Doors=s.D; sel=-1; selDoor=-1; ghost=null; rebuild(); }
+function redo(){ if(!redoS.length) return; undoS.push(snap()); const s=redoS.pop(); ship.d.Parts=s.P; ship.d.Doors=s.D; sel=-1; selDoor=-1; ghost=null; rebuild(); }
+
+// palette
+const PAL_IDS=Object.keys(PARTS).filter(id=>id!=="cosmoteer.door");
+function renderPalette(){
+  const q=$("palQ").value.toLowerCase().trim(), groups=new Map();
+  for(const id of PAL_IDS){ const name=pretty(id); if(q && !name.includes(q) && !id.includes(q)) continue;
+    const c=catOf(id); if(!groups.has(c)) groups.set(c,[]); groups.get(c).push(id); }
+  let html=(!q||"doors".includes(q))?`<h4><i class="sw" style="background:#000"></i>Doors</h4><button data-id="door" aria-pressed="${tool==="door"}"><span>door</span><small>wall</small></button>`:""; for(const [k,n,col] of CATS){ const ids=groups.get(k); if(!ids) continue;
+    html+=`<h4><i class="sw" style="background:${col}"></i>${n}</h4>`+ids.sort((a,b)=>pretty(a).localeCompare(pretty(b))).map(id=>{ const s=fullSize(id);
+      return `<button data-id="${esc(id)}" aria-pressed="${tool===id}"><span>${esc(pretty(id))}</span><small>${s[0]}×${s[1]}</small></button>`; }).join(""); }
+  $("pal").innerHTML=html||`<div class="none">No modules match “${esc(q)}”.</div>`;
+}
+$("pal").addEventListener("click",e=>{ const b=e.target.closest("button[data-id]"); if(b) selectTool(b.dataset.id); });
+$("palQ").addEventListener("input",renderPalette);
+$("palQ").addEventListener("keydown",e=>{ if(e.key==="Enter"){ const b=$("pal").querySelector("button[data-id]"); if(b){ selectTool(b.dataset.id); $("palQ").blur(); } } });
+$("undo").onclick=undo; $("redo").onclick=redo;
+$("mirror").addEventListener("change",mirrorSetup);
+$("front").addEventListener("change",()=>{ if(!ship) return; ship.d.FlightDirection=+$("front").value; dirty=true; draw(); });
+$("showZones").addEventListener("change",()=>draw());
+$("ocChk").addEventListener("change",()=>setOC($("ocChk").checked?1:0));
+$("area").addEventListener("change",()=>{ $("silLimit").value=$("area").value; draw(); });
+$("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; renderStats(); } });
+// on-screen rotate / delete (same as R and Delete)
+$("rotBtn").onclick=()=>{ if(tool==="door") return; if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
+  else if(sel>=0) rotateSel(); else editMsg("Select a part or pick a module first, then rotate.",true); };
+$("delBtn").onclick=()=>{ if(selDoor>=0) removeDoorSel(); else if(sel>=0) removeSel(); else editMsg("Click a part or door first, then delete.",true); };
+// About dialog
+const about=$("about"); $("aboutBtn").onclick=()=>about.showModal(); $("aboutLink").onclick=e=>{ e.preventDefault(); about.showModal(); }; $("aboutClose").onclick=()=>about.close();
+about.addEventListener("click",e=>{ if(e.target===about) about.close(); });
+// warn before leaving with unsaved changes
+addEventListener("beforeunload",e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
+
+// pointer: place, select, move, pan, hover
+stage.addEventListener("contextmenu",e=>e.preventDefault());
+stage.addEventListener("pointerdown",e=>{
+  stage.setPointerCapture(e.pointerId); tip.style.display="none";
+  if(e.button===2 && tool){ cancelTool(); return; }
+  if(e.button===0 && tool==="door"){ doorClick(e); return; }
+  if(e.button===0 && tool){ toolGhost(e); placeGhost(); toolGhost(e); draw(); return; }
+  if(e.button===0 && ship){ const [gx,gy]=gridAt(e), p=ship.cell.get(Math.floor(gx),Math.floor(gy));
+    const dh=doorHit(gx,gy); if(dh>=0){ selDoor=dh; sel=-1; hint(); draw(); return; } selDoor=-1;
+    if(p){ sel=p.i; drag={kind:"move",i:p.i,ox:Math.floor(gx)-p.x,oy:Math.floor(gy)-p.y,sx:e.clientX,sy:e.clientY,moved:false}; hint(); draw(); return; }
+    if(sel>=0){ sel=-1; hint(); } }
+  drag={kind:"pan",x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y}; stage.classList.add("drag"); draw();
+});
+stage.addEventListener("pointermove",e=>{
+  const r=stage.getBoundingClientRect();
+  if(drag&&drag.kind==="pan"){ cam.x=drag.cx-(e.clientX-drag.x)/cam.s; cam.y=drag.cy-(e.clientY-drag.y)/cam.s; draw(); return; }
+  if(drag&&drag.kind==="move"){
+    if(!drag.moved && Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4) return; drag.moved=true;
+    const p=ship.parts[drag.i], [gx,gy]=gridAt(e), tw=twinOf(drag.i), ign=[drag.i]; if(tw>=0) ign.push(tw);
+    ghost=makeGhost(p.id,Math.floor(gx)-drag.ox,Math.floor(gy)-drag.oy,p.rot,ign,tw<0||tw===drag.i); draw(); return; }
+  if(tool==="door"){ doorHover(e); draw(); return; }
+  if(tool){ toolGhost(e); draw(); return; }
+  if(!ship) return;
+  const [gx,gy]=toGrid(e.clientX-r.left,e.clientY-r.top), p=ship.cell.get(Math.floor(gx),Math.floor(gy)), di=doorHit(gx,gy);
+  if(di>=0){ // hovering a door: say what it connects
+    const d=ship.d.Doors[di], [x,y]=d.Cell, sides=(d.Orientation===1?[[x-1,y],[x,y]]:[[x,y-1],[x,y]]).map(([a,b])=>ship.cell.get(a,b)), nm=q=>q?pretty(q.id):"open space";
+    tip.innerHTML=`<b>Door</b><br>between ${esc(nm(sides[0]))} and ${esc(nm(sides[1]))}<br>${d.Orientation===1?"vertical":"horizontal"} wall at (${x}, ${y})`;
+  } else {
+  if(!p){ tip.style.display="none"; return; }
+  const def=PARTS[p.id];
+  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}`;
+  }
+  tip.style.display="block";
+  let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
+  tip.style.left=tx+"px"; tip.style.top=ty+"px";
+});
+stage.addEventListener("pointerup",()=>{
+  if(drag&&drag.kind==="move"&&drag.moved&&ghost){ const p=ship.parts[drag.i];
+    if(!ghost.ok) editMsg(ghostWhy(ghost,"move it"),true);
+    else if(ghost.x!==p.x||ghost.y!==p.y) movePart(drag.i,ghost,twinOf(drag.i));
+    ghost=null; }
+  drag=null; stage.classList.remove("drag"); draw();
+});
+stage.addEventListener("pointerleave",()=>{ tip.style.display="none"; if(tool&&!drag){ ghost=null; doorGhost=null; draw(); } });
+document.addEventListener("keydown",e=>{
+  const ae=document.activeElement, typing=!!ae && (/^(SELECT|TEXTAREA)$/.test(ae.tagName) || (ae.tagName==="INPUT" && !/^(checkbox|radio|range|button)$/.test(ae.type)));
+  if(e.key==="Escape"){ if(typing) document.activeElement.blur();
+    if(drag&&drag.kind==="move"){ drag=null; ghost=null; draw(); return; }
+    if(tool){ cancelTool(); return; } if(sel>=0||selDoor>=0){ sel=-1; selDoor=-1; hint(); draw(); } return; }
+  if(typing) return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod && e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
+  if(mod && e.key.toLowerCase()==="y"){ e.preventDefault(); redo(); return; }
+  if((e.key==="o"||e.key==="O") && sel>=0 && !tool){ const p=ship.parts[sel]; if(p&&OC_PARTS.has(p.id)) setOC(p.oc===1?0:1); return; }
+  if(e.key==="r"||e.key==="R"){ if(tool==="door") return; if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
+    else if(sel>=0) rotateSel(); return; }
+  if((e.key==="Delete"||e.key==="Backspace") && selDoor>=0){ e.preventDefault(); removeDoorSel(); return; }
+  if((e.key==="Delete"||e.key==="Backspace") && sel>=0){ e.preventDefault(); removeSel(); }
+});
+
+// ---------- saving any ship ----------
+function rawPkey(n){ const g=k=>{ const e=n.e.find(x=>x[0]===k); return e&&e[1].T===1?interp(k,e[1].b):null; };
+  const loc=g("Location")||[0,0]; return `${g("ID")}|${loc[0]},${loc[1]}|${g("Rotation")|0}|${g("FlipX")?1:0}`; }
+// keep settings for parts that still exist (moved ones follow), drop ones whose part was removed
+function rewriteRefs(tree,byOrig,orig){
+  function walk(n){
+    if(n.T===3){ if(n.e.map(e=>e[0]).join()==="FlipX,ID,Location,Rotation"){ const k=rawPkey(n); if(!orig.has(k)) return true; const p=byOrig.get(k); if(!p) return false;
+        setEntry(n,"FlipX",N.bool(p.FlipX)); setEntry(n,"Location",N.loc(p.Location[0],p.Location[1])); setEntry(n,"Rotation",intNode(p.Rotation)); return true; }
+      for(const e of n.e) if(!walk(e[1])) return false; return true; }
+    if(n.T===2){ for(const x of n.a) if(!walk(x)) return false; }
+    return true;
+  }
+  for(const ent of tree.e){ if(["Parts","Doors","Roles"].includes(ent[0])||ent[1].T!==2) continue;
+    ent[1].a=ent[1].a.filter(walk); if(!ent[1].a.length) ent[1]=N.unset(); }
+}
+async function saveShip(){
+  if(!ship||!ship.parts.length) return;
+  const btn=$("saveShip"); btn.disabled=true; editMsg("Building the ship file…");
+  try{
+    let tree;
+    if(ship.tree){ tree=structuredClone(ship.tree);
+      const byOrig=new Map(); for(const p of ship.d.Parts) if(p._o) byOrig.set(p._o,p);
+      rewriteRefs(tree,byOrig,ship.orig); }
+    else { tree=await rawTreeFromPNG(silTemplate());
+      for(const k of ["Doors","CrewSourceRoles","PartUIToggleStates","PartUIColorValues","PartControlGroups"]) setEntry(tree,k,N.unset());
+      setEntry(tree,"Author",N.str("")); setEntry(tree,"Description",N.str("Built in Drydock.")); }
+    setEntry(tree,"Parts",{T:2,a:ship.d.Parts.map(p=>partNode(p.ID,p.Location[0],p.Location[1],p.Rotation|0,!!p.FlipX))});
+    writeOverclock(tree);
+    setEntry(tree,"Doors",ship.d.Doors.length?{T:2,a:ship.d.Doors.map(d=>({T:3,e:[["Cell",N.loc(d.Cell[0],d.Cell[1])],["ID",N.str(d.ID||"cosmoteer.door")],["Orientation",intNode(d.Orientation|0)]]}))}:N.unset());
+    const name=($("shipName").value||"Unnamed ship").replace(/[^\x20-\x7E]/g,"").trim()||"Unnamed ship";
+    setEntry(tree,"Name",N.str(name)); setEntry(tree,"FlightDirection",intNode(+(ship.d.FlightDirection??1)));
+    const bmp=makeBitmap("interior");
+    const blob=await writeShipPNG(tree,(x,w,h)=>{ x.fillStyle="#1B2834"; x.fillRect(0,0,w,h);
+      const sc=Math.min((w-16)/ship.GW,(h-16)/ship.GH); x.imageSmoothingEnabled=sc<1;
+      x.drawImage(bmp,(w-ship.GW*sc)/2,(h-ship.GH*sc)/2,ship.GW*sc,ship.GH*sc); });
+    const saved=await offerFile(blob,name.replace(/[\\/:*?"<>|]/g,"_")+".ship.png"); editMsg(saved); if(saved==="Saved.") dirty=false;
+  }catch(e){ console.error(e); editMsg("Couldn’t build the file: "+e.message,true); }
+  finally{ editUI(); }
+}
+$("saveShip").onclick=saveShip;
+renderPalette(); hint();
+stage.addEventListener("wheel",e=>{ e.preventDefault(); const r=stage.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  const [gx,gy]=toGrid(mx,my); cam.s=Math.max(0.1,Math.min(120,cam.s*Math.exp(-e.deltaY*0.0015)));
+  cam.x=gx-(mx-r.width/2)/cam.s; cam.y=gy-(my-r.height/2)/cam.s; draw(); },{passive:false});
+// doors use a static dashed ("marching ants") style; no animation
+let antOffset=0;
+new ResizeObserver(resize).observe(stage);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+resize();
+</script>
+</body>
+</html>
