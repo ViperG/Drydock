@@ -170,7 +170,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
       <div class="ctl"><label for="area">Build area</label><select id="area"><option value="120">Vanilla (120 × 120)</option><option value="200">Larger Ships (200 × 200)</option><option value="1000">Huge Ships (1000 × 1000)</option></select></div>
       <div class="ctl"><label for="mirror">Mirror</label><select id="mirror"><option value="off">Off</option><option value="lr">Left ↔ right</option><option value="tb">Top ↔ bottom</option><option value="ne">↗ Diagonal (bottom-left to top-right)</option><option value="nw">↖ Diagonal (top-left to bottom-right)</option></select></div>
       <div class="ctl"><label for="front">Front</label><select id="front"><option value="1">↑ Up</option><option value="2">↗ Up-right</option><option value="3">→ Right</option><option value="4">↘ Down-right</option><option value="5">↓ Down</option><option value="6">↙ Down-left</option><option value="7">← Left</option><option value="0">↖ Up-left</option></select></div>
-      <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label></div>
+      <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label><label><input type="checkbox" id="showArcs" checked> Show shield arcs</label></div>
       <div class="checks" id="ocRow" hidden><label><input type="checkbox" id="ocChk"> Overclock this module <kbd>O</kbd></label></div>
       <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
       <div class="pal" id="pal" role="listbox" aria-label="Modules"></div>
@@ -636,6 +636,19 @@ function renderCheck(){
   el.innerHTML=`<h3>Ship check</h3>`+(issues.length?`<ul>${issues.map(x=>`<li>${x}</li>`).join("")}</ul>`:`<div class="ok">✓ No problems found.</div>`)
     +(tips.length?`<ul class="tips">${tips.map(x=>`<li><span>Tip:</span> ${x}</li>`).join("")}</ul>`:"");
 }
+// ---- shield arcs: vanilla range/arc from the game's shield rules (overclock modes not modelled) ----
+const SHIELD_ARC={"cosmoteer.shield_gen_small":{W:2,p:[0,1,2,2],c:[1,1.5],r:7.5,a:90},"cosmoteer.shield_gen_large":{W:3,p:[0,0,3,6],c:[1.5,1.5],r:13,a:160}};
+function shieldArc(id,x,y,rot,flip){
+  const S=SHIELD_ARC[id]; if(!S) return null;
+  const R=(px,py)=>{ for(let k=0;k<rot;k++){ const t=px; px=-py; py=t; } return [px,py]; }, fx=v=>flip?S.W-v:v;
+  const a=R(fx(S.p[0]),S.p[1]), b=R(fx(S.p[0]+S.p[2]),S.p[1]+S.p[3]), ox=x-Math.min(a[0],b[0]), oy=y-Math.min(a[1],b[1]), c=R(fx(S.c[0]),S.c[1]);
+  return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, r:S.r, arc:S.a*Math.PI/180};
+}
+function drawShieldArc(A,k){
+  const s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=A.r*s, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2, col="#8E5BD0";
+  ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=.07*k; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha=Math.min(1,.75*k); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.18); ctx.lineCap="round"; ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.stroke(); ctx.restore();
+}
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
 function drawCross(){
@@ -684,6 +697,9 @@ function drawOverlays(){
       if(o===1){ ctx.moveTo(x,y+s*.15); ctx.lineTo(x,y+s*.85); } else { ctx.moveTo(x+s*.15,y); ctx.lineTo(x+s*.85,y); } } }
     ctx.stroke(); ctx.restore(); }
   if(doorGhost) for(const g of [doorGhost,doorGhost.twin].filter(Boolean)) doorLine(g.d,(g.remove||!g.ok)?css("--warn"):acc,Math.max(4,s*.2),(g.ok&&!g.remove)?null:[4,3]);
+  // shield arcs: faint coverage wedge plus the barrier itself at full range
+  if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawShieldArc(a,1); }
+    if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=shieldArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawShieldArc(a,1.6); } }
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
     ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
@@ -1127,6 +1143,7 @@ $("undo").onclick=undo; $("redo").onclick=redo;
 $("mirror").addEventListener("change",mirrorSetup);
 $("front").addEventListener("change",()=>{ if(!ship) return; ship.d.FlightDirection=+$("front").value; dirty=true; draw(); });
 $("showZones").addEventListener("change",()=>draw());
+$("showArcs").addEventListener("change",()=>draw());
 $("ocChk").addEventListener("change",()=>setOC($("ocChk").checked?1:0));
 $("area").addEventListener("change",()=>{ $("silLimit").value=$("area").value; draw(); });
 $("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; renderStats(); } });
