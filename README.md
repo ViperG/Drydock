@@ -24,6 +24,7 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 - Placing a module on corridor, structure or armor replaces it; modules you remove leave corridor behind
 - Mirror mode: left ↔ right, top ↔ bottom, or either diagonal
 - Red no-build zones for thruster exhaust, weapon firing lanes and radiators, enforced as you build
+- Shield arcs: see each shield's coverage and range (vanilla, un-overclocked values)
 - Set a module's overclock on or off
 - Set the ship's front, including the four diagonal directions
 - Undo and redo
