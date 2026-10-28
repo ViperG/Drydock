@@ -115,6 +115,8 @@ dialog#keys td:first-child{white-space:nowrap;width:42%}
 .check ul{margin:0;padding-left:16px;color:var(--warn)}
 .check li{margin-bottom:3px}
 .check .ok{color:#3E9B57}
+.check ul.tips{color:var(--muted);margin-top:6px}
+.check ul.tips span{font-weight:600}
 header h1 .infolink{font:500 13px "IBM Plex Sans",sans-serif;color:var(--accent);background:none;border:0;padding:2px 4px;margin-left:10px;vertical-align:middle;cursor:pointer}
 header h1 .infolink:hover{text-decoration:underline}
 kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper)}
@@ -628,7 +630,11 @@ function renderCheck(){
     if(bad.length) issues.push(`${bad.length} part${bad.length>1?"s have":" has"} a blocked exhaust, firing lane or clearance zone (${esc([...new Set(bad)].slice(0,3).join(", "))}${new Set(bad).size>3?"…":""}).`); }
   { const n=ship.doors.filter(d=>!doorOk(d)).length; if(n) issues.push(`${n} door${n>1?"s are":" is"} on a wall the game doesn’t allow; it may drop ${n>1?"them":"it"}.`); }
   if(!P.some(p=>CREW_CAP[p.id])) issues.push("No crew quarters: the ship has nowhere to house crew.");
-  el.innerHTML=`<h3>Ship check</h3>`+(issues.length?`<ul>${issues.map(x=>`<li>${x}</li>`).join("")}</ul>`:`<div class="ok">✓ No problems found.</div>`);
+  const tips=[];
+  if(!P.some(p=>p.id==="cosmoteer.airlock")) tips.push("No airlock: crew can’t leave the ship to board others or move between ships.");
+  if(!P.some(p=>p.id==="cosmoteer.fire_extinguisher")) tips.push("No fire extinguisher: fires will be harder to put out in combat.");
+  el.innerHTML=`<h3>Ship check</h3>`+(issues.length?`<ul>${issues.map(x=>`<li>${x}</li>`).join("")}</ul>`:`<div class="ok">✓ No problems found.</div>`)
+    +(tips.length?`<ul class="tips">${tips.map(x=>`<li><span>Tip:</span> ${x}</li>`).join("")}</ul>`:"");
 }
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
