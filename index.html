@@ -103,7 +103,18 @@ dialog#about h3{font:600 15px "Chakra Petch",sans-serif;margin:16px 0 4px}
 dialog#about p,dialog#about li{font-size:14px;line-height:1.5;margin:4px 0}
 dialog#about ul{padding-left:18px;margin:4px 0}
 dialog#about a,.footnote a{color:var(--accent)}
-dialog#about .close{float:right}
+dialog#about .close,dialog#keys .close{float:right}
+dialog#keys{max-width:460px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:20px 24px 18px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+dialog#keys::backdrop{background:rgba(10,20,30,.45)}
+dialog#keys h2{font-size:20px;margin:0 0 10px}
+dialog#keys table{font-size:14px}
+dialog#keys td{padding:5px 4px}
+dialog#keys td:first-child{white-space:nowrap;width:42%}
+.check{margin:0 0 16px;font-size:13px}
+.check h3{font:600 14px "Chakra Petch",sans-serif;margin:0 0 4px}
+.check ul{margin:0;padding-left:16px;color:var(--warn)}
+.check li{margin-bottom:3px}
+.check .ok{color:#3E9B57}
 header h1 .infolink{font:500 13px "IBM Plex Sans",sans-serif;color:var(--accent);background:none;border:0;padding:2px 4px;margin-left:10px;vertical-align:middle;cursor:pointer}
 header h1 .infolink:hover{text-decoration:underline}
 kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper)}
@@ -113,7 +124,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
 </head>
 <body>
 <header>
-  <h1><span class="beta" title="Still in development">BETA</span>Drydock <small>Cosmoteer ship editor</small><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
+  <h1><span class="beta" title="Still in development">BETA</span>Drydock <small>Cosmoteer ship editor</small><button id="keysBtn" class="infolink">⌨ Shortcuts</button><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
   <div class="controls">
     <div class="seg" role="group" aria-label="View mode">
       <button id="mInt" aria-pressed="true">Interior</button>
@@ -168,11 +179,27 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <div class="by" id="sBy">Open a ship to see its stats.</div>
     <dl class="stats" id="stats"></dl>
     <ul class="notes" id="notes"></ul>
+    <div class="check" id="check"></div>
     <div class="legend" id="legend"></div>
     <table id="plist"></table>
     <p class="footnote">Drydock never changes your original file; saving always makes a new copy. Keep a backup before replacing ships in your Saved Ships folder. See <a href="#" id="aboutLink">Notes &amp; credits</a> for known limits.</p>
   </aside>
 </main>
+<dialog id="keys" aria-labelledby="keysTitle">
+  <button class="close" id="keysClose">Close</button>
+  <h2 id="keysTitle">Keyboard shortcuts</h2>
+  <table>
+    <tr><td><kbd>R</kbd></td><td>Rotate the module you’re placing or the selected one</td></tr>
+    <tr><td><kbd>Del</kbd> / <kbd>Backspace</kbd></td><td>Remove the selected module or door</td></tr>
+    <tr><td><kbd>O</kbd></td><td>Overclock the selected module on or off</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copy the selected module</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>V</kbd></td><td>Place copies of it (same rotation and overclock)</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd></td><td>Undo / redo</td></tr>
+    <tr><td><kbd>Esc</kbd> or right-click</td><td>Stop placing, or deselect</td></tr>
+    <tr><td>Scroll / drag</td><td>Zoom / pan</td></tr>
+    <tr><td><kbd>?</kbd></td><td>Show this list</td></tr>
+  </table>
+</dialog>
 <dialog id="about" aria-labelledby="aboutTitle">
   <button class="close" id="aboutClose">Close</button>
   <h2 id="aboutTitle">Drydock beta: notes &amp; credits</h2>
@@ -181,10 +208,8 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
   <p>Everything runs in your browser. Ship files and images you open are never uploaded anywhere. Drydock never changes your original file; saving always makes a new copy, so keep a backup before replacing ships in your Saved Ships folder.</p>
   <h3>Known limits</h3>
   <ul>
-    <li>Costs for the heat-update parts aren’t known yet, so ship cost is shown as a minimum.</li>
+    <li>The structure heat pipe and thermal canister missile factory have no price yet, so ships using them show a minimum cost.</li>
     <li>Crew required isn’t calculated. Roles and crew priorities on loaded ships are kept, but can’t be edited here.</li>
-    <li>Doors can go on any wall between two rooms; the game’s per-module door spots aren’t checked yet, so the game may drop a door.</li>
-    <li>Mirrored wedges and other one-sided parts are mirrored by rotation only and may need a manual flip in the game.</li>
     <li>Build-area edges and the 8 flight directions follow how saved ships behave; tell us if the game disagrees.</li>
     <li>Very large hulls (hundreds of thousands of parts) can be slow to edit and save.</li>
   </ul>
@@ -201,15 +226,15 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
 const PARTS = {"cosmoteer.corridor":{"s":[1,1],"m":1,"c":0.1,"t":["crew_transport"]},"cosmoteer.door":{"s":[1,1],"c":0.1,"t":["crew_transport"]},"cosmoteer.delete":{"s":[1,1],"m":1,"t":[""]},"cosmoteer.structure":{"s":[1,1],"m":0.33,"c":0.05,"t":["structure"]},"cosmoteer.structure_wedge":{"s":[1,1],"m":0.17,"c":0.025,"t":["structure"]},"cosmoteer.structure_1x2_wedge":{"s":[1,2],"m":0.33,"c":0.05,"t":["structure"]},"cosmoteer.structure_1x3_wedge":{"s":[1,3],"m":0.5,"c":0.075,"t":["structure"]},"cosmoteer.structure_tri":{"s":[1,1],"m":0.08,"c":0.025,"t":["structure"]},"cosmoteer.laser_blaster_small":{"s":[1,2],"m":2.5,"c":2,"t":["weapon","on_off","energy weapon"]},"cosmoteer.laser_blaster_large":{"s":[2,3],"m":7.68,"c":6,"t":["weapon","on_off","energy weapon","alternating_fire"]},"cosmoteer.disruptor":{"s":[1,3],"m":3.48,"c":3,"t":["weapon","on_off","energy weapon"]},"cosmoteer.ion_beam_emitter":{"s":[2,4],"m":8,"c":10,"t":["weapon","on_off","energy weapon"]},"cosmoteer.resource_collector":{"s":[2,2],"m":4,"c":0,"t":["on_off"]},"cosmoteer.ion_beam_prism":{"s":[2,2],"m":7.7,"c":5,"t":["energy weapon","on_off","weapon"]},"cosmoteer.tractor_beam_emitter":{"s":[5,5],"m":32.07,"c":40,"t":["on_off","weapon_like","utilities"]},"cosmoteer.point_defense":{"s":[1,1],"m":1,"c":1,"t":["weapon","on_off","fire_pref","defense","energy weapon"]},"cosmoteer.mining_laser_small":{"s":[2,3],"m":7.4,"c":6,"t":["weapon","on_off","energy weapon","utilities"]},"cosmoteer.cannon_med":{"s":[2,1],"m":4.44,"c":2,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.sensor_array":{"s":[3,3],"m":11.54,"c":20,"t":["on_off","utilities"]},"cosmoteer.cannon_large":{"s":[3,2],"m":12.29,"c":5,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.hyperdrive_beacon":{"s":[4,4],"m":17.13,"c":40,"t":["on_off","utilities"]},"cosmoteer.cannon_deck":{"s":[4,5],"m":27.07,"c":20,"t":["weapon","on_off","projectile weapon","alternating_fire"]},"cosmoteer.explosive_charge":{"s":[1,1],"m":1,"c":0.6,"t":["utilities"]},"cosmoteer.roof_light":{"s":[1,1],"m":1,"c":0.2,"t":["on_off","utilities","light"]},"cosmoteer.missile_launcher":{"s":[2,3],"m":8,"c":10,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.roof_headlight":{"s":[1,1],"m":1,"c":0.3,"t":["on_off","utilities","light"]},"cosmoteer.railgun_loader":{"s":[2,3],"m":24,"c":12.5,"t":["on_off","projectile weapon"]},"cosmoteer.armor_structure_hybrid_1x1":{"s":[1,1],"m":1.5,"c":0.125,"t":["defense","structure","armor"]},"cosmoteer.armor_structure_hybrid_1x2":{"s":[1,2],"m":3,"c":0.25,"t":["defense","structure","armor"]},"cosmoteer.railgun_accelerator":{"s":[2,3],"m":36,"c":7.5,"t":["on_off","projectile weapon"]},"cosmoteer.armor_structure_hybrid_1x3":{"s":[1,3],"m":4.5,"c":0.375,"t":["defense","structure","armor"]},"cosmoteer.armor_structure_hybrid_tri":{"s":[1,1],"m":1,"c":0.075,"t":["defense","structure","armor"]},"cosmoteer.railgun_launcher":{"s":[2,3],"m":36,"c":7.5,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.armor":{"s":[1,1],"m":3,"c":0.2,"t":["defense","armor"]},"cosmoteer.armor_2x1":{"s":[2,1],"m":6,"c":0.4,"t":["defense","armor"]},"cosmoteer.flak_cannon_large":{"s":[3,6],"m":16.77,"c":21,"t":["weapon","on_off","fire_pref","defense","projectile weapon"]},"cosmoteer.armor_wedge":{"s":[1,1],"m":1.5,"c":0.1,"t":["defense","armor"]},"cosmoteer.armor_1x2_wedge":{"s":[1,2],"m":3,"c":0.2,"t":["defense","armor"]},"cosmoteer.shield_gen_small":{"s":[2,2],"m":6,"c":5,"t":["on_off","defense"]},"cosmoteer.armor_1x3_wedge":{"s":[1,3],"m":4.5,"c":0.3,"t":["defense","armor"]},"cosmoteer.armor_tri":{"s":[1,1],"m":0.75,"c":0.05,"t":["defense","armor"]},"cosmoteer.shield_gen_large":{"s":[3,6],"m":12.65,"c":20,"t":["on_off","defense"]},"cosmoteer.thruster_small":{"s":[1,1],"m":1.3,"c":0.5,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_med":{"s":[1,2],"m":2.45,"c":1.5,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_large":{"s":[2,2],"m":4.99,"c":4,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_boost":{"s":[2,3],"m":8.88,"c":6,"t":["thruster","on_off","flight"]},"cosmoteer.fire_extinguisher":{"s":[1,1],"m":1,"c":0.3,"t":["defense"]},"cosmoteer.thruster_huge":{"s":[3,3],"m":11,"c":10,"t":["thruster","on_off","flight"]},"cosmoteer.control_room_small":{"s":[2,2],"m":4,"c":10,"t":["on_off","flight"]},"cosmoteer.control_room_med":{"s":[3,3],"m":9,"c":25,"t":["on_off","flight"]},"cosmoteer.thruster_small_2way":{"s":[1,1],"m":1.61,"c":1,"t":["thruster","on_off","flight"]},"cosmoteer.control_room_large":{"s":[4,4],"m":16,"c":50,"t":["on_off","flight"]},"cosmoteer.thruster_small_3way":{"s":[1,1],"m":1.91,"c":1.5,"t":["thruster","on_off","flight"]},"cosmoteer.hyperdrive_small":{"s":[2,2],"m":4,"c":10,"t":["hyperdrive","on_off","flight"]},"cosmoteer.engine_room":{"s":[3,3],"m":9,"c":12,"t":["on_off","flight"]},"cosmoteer.crew_quarters_small":{"s":[1,2],"m":2,"c":1.6,"t":["crew","crew_transport"]},"cosmoteer.crew_quarters_med":{"s":[2,2],"m":4,"c":4.2,"t":["crew","crew_transport"]},"cosmoteer.airlock":{"s":[1,1],"m":1,"c":0.6,"t":["on_off","crew_transport"]},"cosmoteer.conveyor":{"s":[1,1],"m":1,"c":0.2,"t":["crew_transport"]},"cosmoteer.reactor_small":{"s":[2,2],"m":4,"c":25,"t":["power","reactor"]},"cosmoteer.reactor_med":{"s":[3,3],"m":9,"c":50,"t":["power","reactor"]},"cosmoteer.reactor_large":{"s":[4,4],"m":16,"c":75,"t":["power","reactor"]},"cosmoteer.power_storage":{"s":[2,2],"m":4,"c":4,"t":["power","storage"]},"cosmoteer.factory_ammo":{"s":[2,2],"m":4,"c":4.1,"t":["on_off","factory"]},"cosmoteer.factory_he":{"s":[3,3],"m":9,"c":15.2,"t":["on_off","factory"]},"cosmoteer.factory_emp":{"s":[3,4],"m":12,"c":20.5,"t":["on_off","factory"]},"cosmoteer.factory_nuke":{"s":[4,4],"m":16,"c":27.1,"t":["on_off","factory"]},"cosmoteer.factory_mine":{"s":[4,3],"m":12,"c":20.18,"t":["on_off","factory"]},"cosmoteer.factory_steel":{"s":[4,4],"m":16,"c":30.4,"t":["on_off","factory"]},"cosmoteer.factory_coil":{"s":[3,3],"m":9,"c":30.8,"t":["on_off","factory"]},"cosmoteer.factory_coil2":{"s":[4,3],"m":12,"c":54.8,"t":["on_off","factory"]},"cosmoteer.factory_tristeel":{"s":[4,4],"m":16,"c":68.2,"t":["on_off","factory"]},"cosmoteer.factory_diamond":{"s":[2,3],"m":6,"c":53.2,"t":["on_off","factory"]},"cosmoteer.factory_processor":{"s":[3,3],"m":9,"c":89,"t":["on_off","factory"]},"cosmoteer.factory_uranium":{"s":[3,4],"m":12,"c":98,"t":["on_off","factory"]},"cosmoteer.storage_2x2":{"s":[2,2],"m":4,"c":1.2,"t":["storage"]},"cosmoteer.storage_3x2":{"s":[3,2],"m":6,"c":1.8,"t":["storage"]},"cosmoteer.storage_3x3":{"s":[3,3],"m":9,"c":2.7,"t":["storage"]},"cosmoteer.storage_4x3":{"s":[4,3],"m":12,"c":3.6,"t":["storage"]},"cosmoteer.storage_4x4":{"s":[4,4],"m":16,"c":4.8,"t":["storage"]},"cosmoteer.chaingun":{"s":[3,5],"m":17.77,"c":24,"t":["weapon","on_off","projectile weapon"]},"cosmoteer.chaingun_magazine":{"s":[1,2],"m":2,"c":1,"t":["projectile weapon"]},"cosmoteer.hyperdrive_large":{"s":[4,4],"m":16,"c":34,"t":["hyperdrive","on_off","flight"]},"cosmoteer.thruster_rocket_battery":{"s":[1,2],"m":2,"c":3,"t":["flight"]},"cosmoteer.thruster_rocket_extender":{"s":[3,2],"m":6,"c":6,"t":["thruster","on_off","flight"]},"cosmoteer.thruster_rocket_nozzle":{"s":[3,4],"m":14.4,"c":15,"t":["thruster","on_off","flight"]},"cosmoteer.hyperdrive_med":{"s":[3,3],"m":9,"c":20,"t":["hyperdrive","on_off","flight"]},"cosmoteer.manipulator_beam_emitter":{"s":[2,2],"m":4,"c":3,"t":["on_off","utilities"]},"cosmoteer.crew_quarters_large":{"s":[3,4],"m":12,"c":15.6,"t":["crew","crew_transport"]}};
 // Heat parts (Meltdown update): sizes measured from real ships; costs unknown.
 Object.assign(PARTS, {
-  "cosmoteer.heat_pipe_adaptive": {s:[1,1], t:["heat","pipe"]},
+  "cosmoteer.heat_pipe_adaptive": {s:[1,1], c:0.3, t:["heat","pipe"]},
   "cosmoteer.heat_pipe_adaptive_structure": {s:[1,1], t:["heat","pipe"]},
-  "cosmoteer.heat_pipe_crossing": {s:[1,1], t:["heat","pipe"]},
-  "cosmoteer.heat_exchanger": {s:[1,1], t:["heat"]},
-  "cosmoteer.radiator": {s:[1,3], t:["heat"]},
-  "cosmoteer.thermal_battery": {s:[2,2], t:["heat"]},
-  "cosmoteer.thermal_amplification_pump": {s:[1,3], t:["heat"]},
-  "cosmoteer.thermal_dilation_pump": {s:[2,2], t:["heat"]},
-  "cosmoteer.resonance_beam_turret": {s:[4,4], t:["weapon"]},
+  "cosmoteer.heat_pipe_crossing": {s:[1,1], c:0.3, t:["heat","pipe"]},
+  "cosmoteer.heat_exchanger": {s:[1,1], c:0.5, t:["heat"]},
+  "cosmoteer.radiator": {s:[1,3], c:10, t:["heat"]},
+  "cosmoteer.thermal_battery": {s:[2,2], c:2.5, t:["heat"]},
+  "cosmoteer.thermal_amplification_pump": {s:[1,3], c:4.5, t:["heat"]},
+  "cosmoteer.thermal_dilation_pump": {s:[2,2], c:5, t:["heat"]},
+  "cosmoteer.resonance_beam_turret": {s:[4,4], c:16, t:["weapon"]},
   "cosmoteer.factory_thermal": {s:[3,3], t:["factory"]},
 }); // heat-era sizes from Voidwright's export of the game's rules (Mar 2026)
 PARTS["cosmoteer.chaingun"].s=[3,4]; PARTS["cosmoteer.flak_cannon_large"].s=[3,5]; // saved footprint per the same export
@@ -350,7 +375,7 @@ function buildModel(d){
   const zoneAt=new Map(), zlist=[];
   for(const p of parts){ const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip); if(!zs.length) continue; zlist.push([p.i,zs]);
     for(const z of zs) forCells(z,(cx,cy)=>{ const k=cx+","+cy; let a=zoneAt.get(k); if(!a) zoneAt.set(k,a=[]); a.push([p.i,z.tag]); }); }
-  return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist};
+  return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist, spots:new Map()};
 }
 
 // ---------- rendering ----------
@@ -562,6 +587,49 @@ function setOC(v){
   for(const i of [sel,tw]) if(i>=0 && OC_PARTS.has(P[i].ID)) P[i]={...P[i],OC:v};
   commit(P, v?"Overclocked.":"Overclock off."); sel=keep; hint(); draw();
 }
+// ---- mirroring slanted pieces: find the rotation (and flip, where allowed) whose shape is the true mirror image ----
+const FLIPPABLE=new Set(["cosmoteer.armor_1x2_wedge","cosmoteer.armor_1x3_wedge","cosmoteer.structure_1x2_wedge","cosmoteer.structure_1x3_wedge","cosmoteer.armor_structure_hybrid_1x2","cosmoteer.armor_structure_hybrid_1x3"]);
+function mirrorPoint(x,y){ const c2=mirror.c2, c=mirror.c;
+  if(mirror.axis==="lr") return [c2-x,y]; if(mirror.axis==="tb") return [x,c2-y];
+  if(mirror.axis==="ne") return [c-y,c-x]; return [y-c,x+c]; }
+const shapeKey=pts=>pts.map(([x,y])=>Math.round(x*100)+","+Math.round(y*100)).sort().join(";");
+function mirrorPart(id,x,y,w,h,rot,flip){
+  const m=mirrorPos(x,y,w,h,rot); m.flip=!!flip;
+  if(!SHAPES[id]) return m;
+  const target=shapeKey(shapePoints({id,x,y,rot,flip:!!flip}).map(([px,py])=>mirrorPoint(px,py)));
+  for(const f of FLIPPABLE.has(id)?[!!flip,!flip]:[!!flip]) for(let r=0;r<4;r++){
+    const fa=footprint(id,r), fb=footprint(id,m.rot); if(fa[0]!==fb[0]||fa[1]!==fb[1]) continue;
+    if(shapeKey(shapePoints({id,x:m.x,y:m.y,rot:r,flip:f}))===target) return {x:m.x,y:m.y,rot:r,flip:f};
+  }
+  return m;
+}
+// ---- allowed door spots (from Voidwright's export of the game's part rules) ----
+const DOORSPOT={"cosmoteer.airlock":{"W":1,"p":[0,0,1,1],"L":[[0,1]]},"cosmoteer.cannon_deck":{"W":4,"p":[0,0,4,5],"L":[[-1,1],[-1,2],[-1,4],[0,5],[1,5],[2,5],[3,5],[4,4],[4,2],[4,1],[1,-1],[2,-1]]},"cosmoteer.cannon_large":{"W":3,"p":[0,1,3,2],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,2],[3,1]]},"cosmoteer.cannon_med":{"W":2,"p":[0,1,2,1],"L":[[-1,1],[2,1],[0,2],[1,2]]},"cosmoteer.chaingun":{"W":3,"p":[0,2,3,4],"L":[[-1,5],[0,6],[1,6],[2,6],[3,5]]},"cosmoteer.chaingun_magazine":{"W":1,"p":[0,0,1,2],"L":[[0,2],[-1,1],[1,1]]},"cosmoteer.control_room_large":{"W":4,"p":[0,0,4,4],"L":[[-1,2],[1,4],[2,4],[4,2]]},"cosmoteer.control_room_med":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,2],[3,1],[3,2],[0,3],[1,3],[2,3]]},"cosmoteer.control_room_small":{"W":2,"p":[0,0,2,2],"L":[[-1,1],[2,1],[0,2],[1,2]]},"cosmoteer.crew_quarters_large":{"W":3,"p":[0,0,3,4],"L":[[1,-1],[1,4]]},"cosmoteer.crew_quarters_med":{"W":2,"p":[0,0,2,2],"L":[[0,-1],[1,-1]]},"cosmoteer.crew_quarters_small":{"W":1,"p":[0,0,1,2],"L":[[-1,0],[0,-1],[1,0]]},"cosmoteer.disruptor":{"W":1,"p":[0,1,1,3],"L":[[-1,3],[1,3],[0,4]]},"cosmoteer.factory_ammo":{"W":2,"p":[0,0,2,2],"L":[[-1,1],[2,1],[0,2],[1,2]]},"cosmoteer.factory_coil":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,2]]},"cosmoteer.factory_coil2":{"W":4,"p":[0,0,4,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,3],[4,2],[4,1]]},"cosmoteer.factory_diamond":{"W":2,"p":[0,0,2,3],"L":[[-1,2],[0,3],[1,3],[2,2]]},"cosmoteer.factory_emp":{"W":3,"p":[0,0,3,4],"L":[[-1,2],[-1,3],[0,4],[1,4],[2,4],[3,3],[3,2]]},"cosmoteer.factory_he":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,2],[3,1]]},"cosmoteer.factory_mine":{"W":4,"p":[0,0,4,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,3],[4,2],[4,1]]},"cosmoteer.factory_nuke":{"W":4,"p":[0,0,4,4],"L":[[-1,2],[-1,3],[0,4],[1,4],[2,4],[3,4],[4,3],[4,2]]},"cosmoteer.factory_processor":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,2],[3,1]]},"cosmoteer.factory_steel":{"W":4,"p":[0,0,4,4],"L":[[-1,2],[-1,3],[0,4],[1,4],[2,4],[3,4],[4,3],[4,2]]},"cosmoteer.factory_thermal":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,2],[0,3],[1,3],[2,3],[3,2],[3,1]]},"cosmoteer.factory_tristeel":{"W":4,"p":[0,0,4,4],"L":[[-1,2],[-1,3],[0,4],[1,4],[2,4],[3,4],[4,3],[4,2]]},"cosmoteer.factory_uranium":{"W":3,"p":[0,0,3,4],"L":[[-1,2],[-1,3],[0,4],[1,4],[2,4],[3,3],[3,2]]},"cosmoteer.fire_extinguisher":{"W":1,"p":[0,0,1,1],"L":[[0,1]]},"cosmoteer.flak_cannon_large":{"W":3,"p":[0,1,3,5],"L":[[-1,4],[1,6],[3,4]]},"cosmoteer.heat_pipe_crossing":{"W":1,"p":[0,0,1,1],"L":[[-1,0],[1,0]]},"cosmoteer.hyperdrive_beacon":{"W":4,"p":[0,0,4,4],"L":[[1,-1],[2,-1],[-1,1],[-1,2],[4,1],[4,2],[1,4],[2,4]]},"cosmoteer.ion_beam_emitter":{"W":2,"p":[0,1,2,4],"L":[[-1,4],[2,4],[0,5],[1,5]]},"cosmoteer.laser_blaster_large":{"W":2,"p":[0,2,2,3],"L":[[-1,4],[0,5],[1,5],[2,4]]},"cosmoteer.laser_blaster_small":{"W":1,"p":[0,1,1,2],"L":[[-1,2],[1,2],[0,3]]},"cosmoteer.mining_laser_small":{"W":2,"p":[0,0,2,3],"L":[[-1,1],[2,1]]},"cosmoteer.missile_launcher":{"W":2,"p":[0,1,2,3],"L":[[-1,2],[2,2]]},"cosmoteer.point_defense":{"W":1,"p":[0,1,1,1],"L":[[-1,1],[1,1],[0,2]]},"cosmoteer.railgun_accelerator":{"W":2,"p":[0,0,2,3],"L":[[-1,0],[-1,2],[2,0],[2,2]]},"cosmoteer.railgun_launcher":{"W":2,"p":[0,1,2,3],"L":[[-1,1],[-1,3],[2,1],[2,3]]},"cosmoteer.railgun_loader":{"W":2,"p":[0,0,2,3],"L":[[-1,2],[0,3],[1,3],[2,2]]},"cosmoteer.resonance_beam_turret":{"W":4,"p":[0,0,4,4],"L":[[0,-1],[3,-1],[-1,1],[-1,2],[4,1],[4,2],[1,4],[2,4]]},"cosmoteer.sensor_array":{"W":3,"p":[0,0,3,3],"L":[[1,-1],[-1,1],[3,1],[1,3]]},"cosmoteer.shield_gen_large":{"W":3,"p":[0,0,3,6],"L":[[-1,5],[3,5],[0,6],[1,6],[2,6]]},"cosmoteer.shield_gen_small":{"W":2,"p":[0,1,2,2],"L":[[-1,2],[2,2],[0,3],[1,3]]},"cosmoteer.thermal_amplification_pump":{"W":1,"p":[0,0,1,3],"L":[[0,-1],[-1,0],[1,0]]},"cosmoteer.thermal_dilation_pump":{"W":2,"p":[0,0,2,2],"L":[[0,-1],[1,-1],[-1,0],[2,0]]},"cosmoteer.thruster_boost":{"W":2,"p":[0,0,2,3],"L":[[-1,0],[0,-1],[1,-1],[2,0]]},"cosmoteer.thruster_huge":{"W":3,"p":[0,0,3,3],"L":[[-1,1],[-1,0],[0,-1],[1,-1],[2,-1],[3,0],[3,1]]},"cosmoteer.thruster_large":{"W":2,"p":[0,0,2,2],"L":[[-1,0],[0,-1],[1,-1],[2,0]]},"cosmoteer.thruster_med":{"W":1,"p":[0,0,1,2],"L":[[-1,0],[0,-1],[1,0]]},"cosmoteer.thruster_rocket_battery":{"W":1,"p":[0,0,1,2],"L":[[-1,0],[0,-1],[1,0]]},"cosmoteer.thruster_rocket_extender":{"W":3,"p":[0,0,3,2],"L":[[0,-1],[2,-1],[-1,0],[-1,1],[3,0],[3,1],[0,2],[2,2]]},"cosmoteer.thruster_rocket_nozzle":{"W":3,"p":[0,0,3,4],"L":[[-1,1],[-1,0],[0,-1],[2,-1],[3,0],[3,1]]},"cosmoteer.thruster_small":{"W":1,"p":[0,0,1,1],"L":[[0,-1],[1,0],[-1,0]]},"cosmoteer.thruster_small_2way":{"W":2,"p":[0,0,1,1],"L":[[0,-1],[-1,0]]},"cosmoteer.thruster_small_3way":{"W":3,"p":[1,0,1,1],"L":[[1,-1]]},"cosmoteer.tractor_beam_emitter":{"W":5,"p":[0,0,5,5],"L":[[1,-1],[2,-1],[3,-1],[5,1],[5,2],[5,3],[1,5],[2,5],[3,5],[-1,1],[-1,2],[-1,3]]}};
+function spotsOf(q){
+  if(!q) return null; if(ship.spots.has(q.i)) return ship.spots.get(q.i);
+  const D=DOORSPOT[q.id]; let S=null;
+  if(D){ S=new Set(); const R=(px,py)=>{ for(let k=0;k<q.rot;k++){ const t=px; px=-py; py=t; } return [px,py]; };
+    const rr=(rx,ry,rw,rh)=>{ if(q.flip) rx=D.W-rx-rw; const a=R(rx,ry), b=R(rx+rw,ry+rh); return [Math.min(a[0],b[0]),Math.min(a[1],b[1])]; };
+    const a=rr(...D.p), ox=q.x-a[0], oy=q.y-a[1], own=(x,y)=>x>=q.x&&x<q.x+q.w&&y>=q.y&&y<q.y+q.h;
+    for(const [lx,ly] of D.L){ const c=rr(lx,ly,1,1), cx=c[0]+ox, cy=c[1]+oy;
+      if(own(cx,cy+1)) S.add(cx+","+(cy+1)+",0"); else if(own(cx,cy-1)) S.add(cx+","+cy+",0"); else if(own(cx+1,cy)) S.add((cx+1)+","+cy+",1"); else if(own(cx-1,cy)) S.add(cx+","+cy+",1"); } }
+  ship.spots.set(q.i,S); return S;
+}
+// ---- ship check: quick warnings before saving ----
+function renderCheck(){
+  const el=$("check"); if(!el) return; const P=ship.parts; if(!P.length){ el.innerHTML=""; return; }
+  const issues=[];
+  if(!P.some(p=>/control_room/.test(p.id))) issues.push("No control room: the ship can’t be flown.");
+  { const G=ship.grid, W=ship.GW, H=ship.GH, seen=new Uint8Array(G.length), q=new Int32Array(G.length); let pieces=0;
+    for(let s0=0;s0<G.length;s0++){ if(!G[s0]||seen[s0]) continue; pieces++; let h=0,t=0; q[t++]=s0; seen[s0]=1;
+      while(h<t){ const i=q[h++], x=i%W, y=(i/W)|0; for(const j of [x>0?i-1:-1,x<W-1?i+1:-1,y>0?i-W:-1,y<H-1?i+W:-1]) if(j>=0&&G[j]&&!seen[j]){ seen[j]=1; q[t++]=j; } } }
+    if(pieces>1) issues.push(`${pieces} separate pieces: parts that don’t touch the main hull become separate ships.`); }
+  { const bad=[]; for(const [i] of ship.zlist){ const p=P[i]; if(zoneProblem({id:p.id,x:p.x,y:p.y,w:p.w,h:p.h,rot:p.rot,hits:new Set()},[i])) bad.push(pretty(p.id)); }
+    if(bad.length) issues.push(`${bad.length} part${bad.length>1?"s have":" has"} a blocked exhaust, firing lane or clearance zone (${esc([...new Set(bad)].slice(0,3).join(", "))}${new Set(bad).size>3?"…":""}).`); }
+  { const n=ship.doors.filter(d=>!doorOk(d)).length; if(n) issues.push(`${n} door${n>1?"s are":" is"} on a wall the game doesn’t allow; it may drop ${n>1?"them":"it"}.`); }
+  if(!P.some(p=>CREW_CAP[p.id])) issues.push("No crew quarters: the ship has nowhere to house crew.");
+  el.innerHTML=`<h3>Ship check</h3>`+(issues.length?`<ul>${issues.map(x=>`<li>${x}</li>`).join("")}</ul>`:`<div class="ok">✓ No problems found.</div>`);
+}
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
 function drawCross(){
@@ -605,6 +673,10 @@ function drawOverlays(){
     ctx.beginPath(); if(d.Orientation===1){ ctx.moveTo(x,y+s*.1); ctx.lineTo(x,y+s*.9); } else { ctx.moveTo(x+s*.1,y); ctx.lineTo(x+s*.9,y); } ctx.stroke(); ctx.restore(); };
   if(selDoor>=0 && ship.d.Doors[selDoor]){ const d=ship.d.Doors[selDoor]; doorLine(d,acc,Math.max(5,s*.25));
     if(mirror.on){ const tw=doorIndex(mirrorDoor(d)); if(tw>=0&&tw!==selDoor) doorLine(ship.d.Doors[tw],acc,Math.max(5,s*.25),[4,4]); } }
+  if(tool==="door" && s>=8){ ctx.save(); ctx.strokeStyle=acc; ctx.globalAlpha=.55; ctx.lineWidth=2; ctx.setLineDash([3,3]); ctx.beginPath();
+    for(const p of ship.parts){ const S=spotsOf(p); if(!S) continue; for(const k of S){ const [cx,cy,o]=k.split(",").map(Number); if(doorIndex({Cell:[cx,cy],Orientation:o})>=0) continue; const [x,y]=toScreen(cx,cy);
+      if(o===1){ ctx.moveTo(x,y+s*.15); ctx.lineTo(x,y+s*.85); } else { ctx.moveTo(x+s*.15,y); ctx.lineTo(x+s*.85,y); } } }
+    ctx.stroke(); ctx.restore(); }
   if(doorGhost) for(const g of [doorGhost,doorGhost.twin].filter(Boolean)) doorLine(g.d,(g.remove||!g.ok)?css("--warn"):acc,Math.max(4,s*.2),(g.ok&&!g.remove)?null:[4,3]);
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
@@ -647,6 +719,7 @@ function renderStats(){
   const used=new Set(P.map(p=>p.cat));
   document.getElementById("legend").innerHTML=CATS.filter(([k])=>used.has(k)).map(([k,n,c])=>`<span><i class="sw" style="background:${c}"></i>${n}</span>`).join("");
   const rows=[...by].sort((a,b)=>CATS.findIndex(c=>c[0]===a[1].cat)-CATS.findIndex(c=>c[0]===b[1].cat)||b[1].n-a[1].n);
+  renderCheck();
   document.getElementById("plist").innerHTML="<tr><th>Part</th><th class='r'>Qty</th><th class='r'>Cost</th></tr>"+
     rows.map(([id,e])=>`<tr><td><i class="sw" style="background:${CAT[e.cat].color}"></i>${esc(id.replace(/^cosmoteer\./,""))}</td><td class="r">${e.n}</td><td class="r">${typeof e.c==="number"?fmt(e.c*1000*e.n):"—"}</td></tr>`).join("");
 }
@@ -883,6 +956,7 @@ document.getElementById("mExt").onclick=()=>setMode("exterior");
 document.getElementById("fit").onclick=fit;
 
 // ---------- editor ----------
+let clip=null, pasteOC; // copy/paste buffer
 let tool=null, toolRot=0, sel=-1, ghost=null, drag=null, undoS=[], redoS=[], selDoor=-1, doorGhost=null, dirty=false;
 const mirror={on:false,axis:"lr",c2:0};
 const tip=$("tip");
@@ -913,8 +987,8 @@ function mirrorPos(x,y,w,h,rot){
 }
 function twinOf(i){
   if(!mirror.on||!ship||i<0) return -1; const p=ship.parts[i]; if(!p) return -1;
-  const m=mirrorPos(p.x,p.y,p.w,p.h,p.rot); if(m.x===p.x&&m.y===p.y&&m.rot===p.rot) return i;
-  const q=ship.cell.get(m.x,m.y); return q && q.id===p.id && q.x===m.x && q.y===m.y && q.rot===m.rot ? q.i : -1;
+  const m=mirrorPart(p.id,p.x,p.y,p.w,p.h,p.rot,p.flip); if(m.x===p.x&&m.y===p.y&&m.rot===p.rot&&m.flip===p.flip) return i;
+  const q=ship.cell.get(m.x,m.y); return q && q.id===p.id && q.x===m.x && q.y===m.y && q.rot===m.rot && (!SHAPES[p.id]||q.flip===m.flip) ? q.i : -1;
 }
 function blankShip(){
   ship=buildModel({Name:$("shipName").value||"New ship",Author:"",ShipRulesID:"cosmoteer.terran",Version:3,FlightDirection:+$("front").value,Parts:[],Doors:"Unset",RoofBaseColor:[1,1,1,.5]});
@@ -934,12 +1008,12 @@ function hint(){
   else if(tool) h.innerHTML=`Placing <b>${esc(pretty(tool))}</b>: click to place, <kbd>R</kbd> rotate, <kbd>Esc</kbd> or right-click to stop.${mir}`;
   else if(sel>=0 && ship.parts[sel]) h.innerHTML=`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move, <kbd>R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
   else if(selDoor>=0) h.innerHTML=`Door selected: <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
-  else h.innerHTML=`Pick a module to place it, or click a part to select it. Drag empty space to pan.${mir}`;
+  else h.innerHTML=`Pick a module to place it, or click a part to select it. Drag empty space to pan. Press <kbd>?</kbd> for shortcuts.${mir}`;
 }
 // ghost for placing or moving, with its mirror twin
-function makeGhost(id,x,y,rot,ignore,noTwin){
+function makeGhost(id,x,y,rot,ignore,noTwin,flip){
   const [w,h]=footprint(id,rot); const g={id,x,y,w,h,rot};
-  if(mirror.on && !noTwin){ const m=mirrorPos(x,y,w,h,rot); if(!(m.x===x&&m.y===y&&m.rot===rot)){ const [tw,th]=footprint(id,m.rot); g.twin={id,x:m.x,y:m.y,w:tw,h:th,rot:m.rot}; } }
+  if(mirror.on && !noTwin){ const m=mirrorPart(id,x,y,w,h,rot,!!flip); if(!(m.x===x&&m.y===y&&m.rot===rot&&m.flip===!!flip)){ const [tw,th]=footprint(id,m.rot); g.twin={id,x:m.x,y:m.y,w:tw,h:th,rot:m.rot,flip:m.flip}; } }
   const T=g.twin, clash=!!T && x<T.x+T.w && T.x<x+w && y<T.y+T.h && T.y<y+h;
   g.ok=!clash&&inArea(x,y,w,h); g.hits=hitsOf(x,y,w,h,ignore,id);
   if(T){ T.ok=!clash&&inArea(T.x,T.y,T.w,T.h); T.hits=hitsOf(T.x,T.y,T.w,T.h,ignore,id); }
@@ -970,13 +1044,14 @@ function editParts(parts,rm,adds){
 function replacedModules(g){ let n=0; for(const h of [g,g.twin].filter(Boolean)) for(const i of h.hits||[]) if(!isHull(ship.parts[i].id)) n++; return n; }
 function placeGhost(){
   if(!ghost) return; if(!ghost.ok){ editMsg(ghostWhy(ghost,"place it"),true); return; }
-  const add=[mk(ghost.id,ghost.x,ghost.y,ghost.rot)]; if(ghost.twin) add.push(mk(ghost.id,ghost.twin.x,ghost.twin.y,ghost.twin.rot));
+  const add=[mk(ghost.id,ghost.x,ghost.y,ghost.rot)]; if(ghost.twin) add.push(mk(ghost.id,ghost.twin.x,ghost.twin.y,ghost.twin.rot,!!ghost.twin.flip));
+  if(pasteOC!==undefined && OC_PARTS.has(ghost.id)) for(const a of add) a.OC=pasteOC;
   const n=replacedModules(ghost);
   commit(editParts(ship.d.Parts,[],add), n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); ghost=null;
 }
 function selectTool(id){
   if(tool===id){ cancelTool(); return; }
-  tool=id; toolRot=0; sel=-1; selDoor=-1; ghost=null; doorGhost=null; if(!ship) blankShip(); renderPalette(); hint(); editMsg("");
+  tool=id; toolRot=0; sel=-1; selDoor=-1; ghost=null; doorGhost=null; pasteOC=undefined; if(!ship) blankShip(); renderPalette(); hint(); editMsg("");
 }
 function cancelTool(quiet){ tool=null; ghost=null; doorGhost=null; renderPalette(); if(!quiet){ hint(); draw(); } }
 function removeSel(){
@@ -987,13 +1062,13 @@ function removeSel(){
 function rotateSel(){
   const p=ship.parts[sel]; if(!p) return; const nr=(p.rot+1)%4, [w,h]=footprint(p.id,nr);
   const nx=Math.round(p.x+p.w/2-w/2), ny=Math.round(p.y+p.h/2-h/2), tw=twinOf(sel), ign=[sel]; if(tw>=0) ign.push(tw);
-  const g=makeGhost(p.id,nx,ny,nr,ign,tw<0||tw===sel);
+  const g=makeGhost(p.id,nx,ny,nr,ign,tw<0||tw===sel,p.flip);
   if(!g.ok){ editMsg(ghostWhy(g,"rotate it"),true); return; }
   movePart(sel,g,tw);
 }
 function movePart(i,g,tw){
   const parts=ship.d.Parts, old=parts[i], adds=[withOC(mk(old.ID,g.x,g.y,g.rot,old.FlipX,old._o),old)], rm=[i];
-  if(tw>=0 && tw!==i && g.twin){ const o2=parts[tw]; adds.push(withOC(mk(o2.ID,g.twin.x,g.twin.y,g.twin.rot,o2.FlipX,o2._o),o2)); rm.push(tw); }
+  if(tw>=0 && tw!==i && g.twin){ const o2=parts[tw]; adds.push(withOC(mk(o2.ID,g.twin.x,g.twin.y,g.twin.rot,g.twin.flip!==undefined?g.twin.flip:o2.FlipX,o2._o),o2)); rm.push(tw); }
   const n=replacedModules(g), next=editParts(parts,rm,adds);
   commit(next, n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); sel=next.firstAdd; hint(); draw();
 }
@@ -1005,7 +1080,8 @@ function edgeAt(gx,gy){ const cx=Math.floor(gx), cy=Math.floor(gy), fx=gx-cx, fy
 function doorIndex(d){ const k=doorKey(d); return ship.d.Doors.findIndex(e=>doorKey(e)===k); }
 function doorOk(d){ const [x,y]=d.Cell, s=d.Orientation===1?[[x-1,y],[x,y]]:[[x,y-1],[x,y]];
   const [a,b]=s.map(([cx,cy])=>ship.cell.get(cx,cy)), walk=q=>q&&q.cat!=="structure"&&q.cat!=="armor";
-  return !!(walk(a)&&walk(b)&&a.i!==b.i); }
+  if(!(walk(a)&&walk(b)&&a.i!==b.i)) return false;
+  const k=doorKey(d); for(const q of [a,b]){ const S=spotsOf(q); if(S && !S.has(k)) return false; } return true; }
 function mirrorDoor(d){ const [x,y]=d.Cell, o=d.Orientation, c=mirror.c2, k=mirror.c;
   if(mirror.axis==="ne") return o===0?{Cell:[k-y,k-x-1],Orientation:1}:{Cell:[k-y-1,k-x],Orientation:0};
   if(mirror.axis==="nw") return o===0?{Cell:[y-k,x+k],Orientation:1}:{Cell:[y-k,x+k],Orientation:0};
@@ -1018,7 +1094,7 @@ function doorHover(e){ const [gx,gy]=gridAt(e), d=edgeAt(gx,gy).d, ex=doorIndex(
 function doorClick(e){
   doorHover(e); const g=doorGhost; if(!g) return; let D=ship.d.Doors.slice(); const all=[g,g.twin].filter(Boolean);
   if(g.remove){ const rm=new Set(all.filter(k=>k.remove).map(k=>doorKey(k.d))); commit(null,"Door removed.",D.filter(x=>!rm.has(doorKey(x)))); }
-  else { if(!g.ok){ editMsg("A door needs a room or corridor on both sides of the wall.",true); return; }
+  else { if(!g.ok){ editMsg("A door needs a room or corridor on both sides, at a spot the module allows (shown as blue dashes).",true); return; }
     for(const k of all) if(!k.remove&&k.ok) D.push({Cell:[...k.d.Cell],ID:"cosmoteer.door",Orientation:k.d.Orientation});
     commit(null,"",D); }
   doorHover(e); draw(); }
@@ -1054,6 +1130,7 @@ $("rotBtn").onclick=()=>{ if(tool==="door") return; if(tool){ toolRot=(toolRot+1
 $("delBtn").onclick=()=>{ if(selDoor>=0) removeDoorSel(); else if(sel>=0) removeSel(); else editMsg("Click a part or door first, then delete.",true); };
 // About dialog
 const about=$("about"); $("aboutBtn").onclick=()=>about.showModal(); $("aboutLink").onclick=e=>{ e.preventDefault(); about.showModal(); }; $("aboutClose").onclick=()=>about.close();
+const keys=$("keys"); $("keysBtn").onclick=()=>keys.showModal(); $("keysClose").onclick=()=>keys.close(); keys.addEventListener("click",e=>{ if(e.target===keys) keys.close(); });
 about.addEventListener("click",e=>{ if(e.target===about) about.close(); });
 // warn before leaving with unsaved changes
 addEventListener("beforeunload",e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
@@ -1077,7 +1154,7 @@ stage.addEventListener("pointermove",e=>{
   if(drag&&drag.kind==="move"){
     if(!drag.moved && Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4) return; drag.moved=true;
     const p=ship.parts[drag.i], [gx,gy]=gridAt(e), tw=twinOf(drag.i), ign=[drag.i]; if(tw>=0) ign.push(tw);
-    ghost=makeGhost(p.id,Math.floor(gx)-drag.ox,Math.floor(gy)-drag.oy,p.rot,ign,tw<0||tw===drag.i); draw(); return; }
+    ghost=makeGhost(p.id,Math.floor(gx)-drag.ox,Math.floor(gy)-drag.oy,p.rot,ign,tw<0||tw===drag.i,p.flip); draw(); return; }
   if(tool==="door"){ doorHover(e); draw(); return; }
   if(tool){ toolGhost(e); draw(); return; }
   if(!ship) return;
@@ -1109,6 +1186,9 @@ document.addEventListener("keydown",e=>{
     if(tool){ cancelTool(); return; } if(sel>=0||selDoor>=0){ sel=-1; selDoor=-1; hint(); draw(); } return; }
   if(typing) return;
   const mod=e.ctrlKey||e.metaKey;
+  if(e.key==="?"){ $("keys").showModal(); return; }
+  if(mod && e.key.toLowerCase()==="c" && sel>=0 && ship.parts[sel]){ const p=ship.parts[sel]; clip={id:p.id,rot:p.rot,oc:p.oc}; editMsg(`Copied ${pretty(p.id)}. Press Ctrl+V to place copies.`); return; }
+  if(mod && e.key.toLowerCase()==="v" && clip){ e.preventDefault(); selectTool(clip.id); toolRot=clip.rot; pasteOC=clip.oc; editMsg(`Placing copies of ${pretty(clip.id)}.`); return; }
   if(mod && e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
   if(mod && e.key.toLowerCase()==="y"){ e.preventDefault(); redo(); return; }
   if((e.key==="o"||e.key==="O") && sel>=0 && !tool){ const p=ship.parts[sel]; if(p&&OC_PARTS.has(p.id)) setOC(p.oc===1?0:1); return; }
