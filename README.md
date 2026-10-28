@@ -18,7 +18,9 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 
 **Edit it**
 - Searchable module list; click a module, then click to place it
-- Move, rotate and delete modules; add and remove doors
+- Move, rotate and delete modules; copy and paste them
+- Add and remove doors, limited to the spots each module allows
+- A ship check that warns about a missing control room, disconnected pieces, blocked thrusters or weapons, and invalid doors
 - Placing a module on corridor, structure or armor replaces it; modules you remove leave corridor behind
 - Mirror mode: left ↔ right, top ↔ bottom, or either diagonal
 - Red no-build zones for thruster exhaust, weapon firing lanes and radiators, enforced as you build
@@ -59,6 +61,8 @@ That's a complete offline ship editor. It works without an internet connection; 
 | **R** | Rotate the module you're placing or the selected one |
 | **Delete** / **Backspace** | Remove the selected module or door |
 | **O** | Toggle overclock on the selected module |
+| **Ctrl+C** / **Ctrl+V** | Copy the selected module / place copies of it |
+| **?** | Show all shortcuts |
 | **Esc** | Stop placing, or deselect |
 | **Ctrl+Z** / **Ctrl+Y** | Undo / redo |
 | Scroll / drag | Zoom / pan |
@@ -67,10 +71,8 @@ On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the 
 
 ## Known limits (beta)
 
-- Costs for the heat-update parts aren't known yet, so ship cost is a minimum.
+- The structure heat pipe and thermal canister missile factory have no price yet, so ships using them show a minimum cost.
 - Crew required isn't calculated. Crew roles and priorities on loaded ships are kept but can't be edited.
-- Doors can go on any wall between two rooms; the game's per-module door spots aren't checked yet, so the game may drop a door.
-- Wedges and other one-sided parts are mirrored by rotation only and may need a manual flip in the game.
 - The shield overclock mode (Hardened / Expanded) and thermal safety settings are kept as saved but can't be changed yet.
 - Very large hulls (hundreds of thousands of parts) can be slow.
 
