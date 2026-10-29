@@ -26,6 +26,7 @@
   --grid:rgba(140,190,230,.07); --grid-major:rgba(140,190,230,.16); --accent:#6DB3EE; --warn:#E39A62; --hull:#6F7E8B;
 }
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
@@ -173,6 +174,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
       <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label><label><input type="checkbox" id="showArcs" checked> Show shield arcs</label></div>
       <div class="ctl"><label for="wArcMode">Weapon arcs</label><select id="wArcMode"><option value="off">Off</option><option value="short">Short (direction only)</option><option value="full">Full range</option></select></div>
       <div class="checks" id="ocRow" hidden><label><input type="checkbox" id="ocChk"> Overclock this module <kbd>O</kbd></label></div>
+      <div class="ctl" id="smRow" hidden><label for="smSel">Shield mode</label><select id="smSel"><option value="0">Expanded (wider, longer)</option><option value="1">Hardened (narrower, stronger)</option></select></div>
       <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
       <div class="pal" id="pal" role="listbox" aria-label="Modules"></div>
       <div class="actions"><button id="rotBtn" title="Rotate (R)">Rotate</button><button id="delBtn" title="Delete (Del)">Delete</button><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button><button class="primary" id="saveShip" disabled>Save as .ship.png</button></div>
@@ -221,7 +223,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <li>Save-format research: GameDungeon’s cosmoteer_save_tools, as used in lunastrod’s cosmoteer-com and Helicophel’s cosmoteer-ship-to-wikitext.</li>
     <li>Part sizes, costs and outlines: the part table from Helicophel’s cosmoteer-ship-to-wikitext (MIT license, © franklin050187).</li>
     <li>Heat-era part geometry: 0neye’s Voidwright vanilla part export (Apache License 2.0).</li>
-    <li>No-build zones are derived from Cosmoteer’s own part rules files.</li>
+    <li>No-build zones, shield and weapon arcs, and overclock data are derived from Cosmoteer’s own part rules files, via the Rojamahorse/CosmoteerUpdates mirror (October 2026).</li>
     <li>Cosmoteer is © Walternate Realities.</li>
   </ul>
 </dialog>
@@ -260,7 +262,9 @@ const CATS = [
 ];
 const CAT = Object.fromEntries(CATS.map(([k,n,c])=>[k,{name:n,color:c}]));
 const PART_COLOR = {"cosmoteer.corridor":"#FFFFFF","cosmoteer.engine_room":"#FF9A1F","cosmoteer.heat_pipe_crossing":"#B94A22","cosmoteer.conveyor":"#FFFFFF","cosmoteer.heat_exchanger":"#FFFFFF","cosmoteer.hyperdrive_small":"#FFFFFF","cosmoteer.hyperdrive_med":"#FFFFFF","cosmoteer.hyperdrive_large":"#FFFFFF","cosmoteer.storage_2x2":"#D9CFB4","cosmoteer.storage_3x2":"#D9CFB4","cosmoteer.storage_3x3":"#D9CFB4","cosmoteer.storage_4x3":"#D9CFB4","cosmoteer.storage_4x4":"#D9CFB4"}; // per-part colors that differ from their group
-const colorOf = p => PART_COLOR[p.id] || CAT[p.cat].color;
+const colorOf = p => (p.cat==="shield" && p.oc===1) ? shieldModeColor(p.id,p.sm) : (PART_COLOR[p.id] || CAT[p.cat].color);
+// overclocked shields: bluish = Expanded (small shield, mode 0); pinkish = Hardened / shrunk (small mode 1, or a large shield)
+function shieldModeColor(id,sm){ return (id==="cosmoteer.shield_gen_small" && sm!==1) ? "#5A6FE0" : "#C452B4"; }
 function catOf(id){
   const d = PARTS[id]; if(!d) return "mod";
   const t = d.t||[];
@@ -364,7 +368,7 @@ function buildModel(d){
   const parts = (Array.isArray(d.Parts)?d.Parts:[]).map(p=>{
     const def=PARTS[p.ID], size=def?def.s:[1,1], r=((p.Rotation|0)%4+4)%4;
     const w=size[r%2], h=size[(r+1)%2];
-    return {id:p.ID, x:p.Location[0], y:p.Location[1], w, h, rot:r, flip:!!p.FlipX, cat:catOf(p.ID), known:!!def, oc:p.OC, i:parts_i++};
+    return {id:p.ID, x:p.Location[0], y:p.Location[1], w, h, rot:r, flip:!!p.FlipX, cat:catOf(p.ID), known:!!def, oc:p.OC, sm:p.SM, i:parts_i++};
   });
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   for(const p of parts){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h); }
@@ -569,21 +573,28 @@ function fullRect(p){
 function fullSize(id){ const s=PARTS[id].s; if(catOf(id)!=="shield") return s; const r=fullRect({id,x:0,y:0,w:s[0],h:s[1],rot:0,flip:false,cat:"shield"}); return [r.w,r.h]; }
 // ---- overclock: stored per module as a "thermal_overclock" toggle (0 = off, 1 = on) ----
 const OC_PARTS=new Set(["cosmoteer.cannon_deck", "cosmoteer.cannon_large", "cosmoteer.cannon_med", "cosmoteer.chaingun", "cosmoteer.disruptor", "cosmoteer.engine_room", "cosmoteer.factory_ammo", "cosmoteer.factory_coil", "cosmoteer.factory_coil2", "cosmoteer.factory_emp", "cosmoteer.factory_he", "cosmoteer.factory_mine", "cosmoteer.factory_nuke", "cosmoteer.factory_processor", "cosmoteer.factory_steel", "cosmoteer.factory_thermal", "cosmoteer.factory_tristeel", "cosmoteer.factory_uranium", "cosmoteer.fire_extinguisher", "cosmoteer.flak_cannon_large", "cosmoteer.ion_beam_emitter", "cosmoteer.laser_blaster_large", "cosmoteer.laser_blaster_small", "cosmoteer.mining_laser_small", "cosmoteer.point_defense", "cosmoteer.power_storage", "cosmoteer.railgun_launcher", "cosmoteer.reactor_large", "cosmoteer.reactor_med", "cosmoteer.reactor_small", "cosmoteer.sensor_array", "cosmoteer.shield_gen_large", "cosmoteer.shield_gen_small", "cosmoteer.thruster_boost", "cosmoteer.thruster_huge", "cosmoteer.thruster_large", "cosmoteer.thruster_med", "cosmoteer.thruster_rocket_extender", "cosmoteer.thruster_rocket_nozzle", "cosmoteer.thruster_small", "cosmoteer.thruster_small_2way", "cosmoteer.thruster_small_3way", "cosmoteer.tractor_beam_emitter"]);
-const withOC=(n,o)=>{ if(o.OC!==undefined) n.OC=o.OC; return n; };
+const withOC=(n,o)=>{ if(o.OC!==undefined) n.OC=o.OC; if(o.SM!==undefined) n.SM=o.SM; return n; };
 function readOverclock(tree,parts){
   const ent=tree.e.find(e=>e[0]==="PartUIToggleStates"); if(!ent||ent[1].T!==2) return;
   const by=new Map(parts.map(p=>[p._o,p]));
   for(const n of ent[1].a){ if(n.T!==3) continue; const K=n.e.find(e=>e[0]==="Key"), V=n.e.find(e=>e[0]==="Value");
     if(!K||!V||K[1].T!==2||K[1].a.length<2) continue; const [pm,tg]=K[1].a; if(pm.T!==3||tg.T!==1) continue;
-    let name; try{ name=lenStr(tg.b); }catch{ continue; } if(name!=="thermal_overclock") continue;
-    const p=by.get(rawPkey(pm)); if(p && V[1].T===1 && V[1].b.length===4) p.OC=new DataView(V[1].b.buffer,V[1].b.byteOffset,4).getUint32(0,true)?1:0; }
+    let name; try{ name=lenStr(tg.b); }catch{ continue; } if(name!=="thermal_overclock"&&name!=="overclock_shield") continue;
+    const p=by.get(rawPkey(pm)); if(p && V[1].T===1 && V[1].b.length===4){ const v=new DataView(V[1].b.buffer,V[1].b.byteOffset,4).getUint32(0,true); if(name==="thermal_overclock") p.OC=v?1:0; else p.SM=v?1:0; } }
 }
 function writeOverclock(tree){
   let ent=tree.e.find(e=>e[0]==="PartUIToggleStates"); if(!ent){ ent=["PartUIToggleStates",N.unset()]; tree.e.push(ent); }
-  const keep=ent[1].T===2?ent[1].a.filter(n=>{ try{ const K=n.e.find(e=>e[0]==="Key")[1]; return lenStr(K.a[1].b)!=="thermal_overclock"; }catch{ return true; } }):[];
+  const keep=ent[1].T===2?ent[1].a.filter(n=>{ try{ const K=n.e.find(e=>e[0]==="Key")[1]; const nm=lenStr(K.a[1].b); return nm!=="thermal_overclock"&&nm!=="overclock_shield"; }catch{ return true; } }):[];
   for(const p of ship.d.Parts) if(p.OC===0||p.OC===1)
     keep.push({T:3,e:[["Key",{T:2,a:[partNode(p.ID,p.Location[0],p.Location[1],p.Rotation|0,!!p.FlipX),N.str("thermal_overclock")]}],["Value",N.u32(p.OC)]]});
+  for(const p of ship.d.Parts) if(p.SM===0||p.SM===1)
+    keep.push({T:3,e:[["Key",{T:2,a:[partNode(p.ID,p.Location[0],p.Location[1],p.Rotation|0,!!p.FlipX),N.str("overclock_shield")]}],["Value",N.u32(p.SM)]]});
   ent[1]=keep.length?{T:2,a:keep}:N.unset();
+}
+function setSM(v){
+  if(sel<0) return; const p=ship.d.Parts[sel]; if(p.ID!=="cosmoteer.shield_gen_small") return; const tw=twinOf(sel), P=ship.d.Parts.slice(), keep=sel;
+  for(const i of [sel,tw]) if(i>=0 && P[i].ID==="cosmoteer.shield_gen_small") P[i]={...P[i],SM:v};
+  commit(P, v?"Shield mode: Hardened (applies when overclocked).":"Shield mode: Expanded (applies when overclocked)."); sel=keep; hint(); draw();
 }
 function setOC(v){
   if(sel<0) return; const p=ship.d.Parts[sel]; if(!OC_PARTS.has(p.ID)) return; const tw=twinOf(sel), P=ship.d.Parts.slice(), keep=sel;
@@ -639,7 +650,7 @@ function renderCheck(){
 }
 // ---- shield arcs: vanilla range/arc from the game's shield rules (overclock modes not modelled) ----
 // ---- weapon firing arcs (vanilla FiringArc and projectile range from the game's rules) ----
-const WEAPON_ARC={"cosmoteer.laser_blaster_small":{"W":1,"p":[0,1,1,2],"c":[0.5,2.0],"a":200,"r":260},"cosmoteer.laser_blaster_large":{"W":2,"p":[0,2,2,3],"c":[1.0,3.5],"a":190,"r":260},"cosmoteer.cannon_med":{"W":2,"p":[0,1,2,1],"c":[1.0,1.5],"a":115,"r":190},"cosmoteer.cannon_large":{"W":3,"p":[0,1,3,2],"c":[1.5,2.0],"a":115,"r":190},"cosmoteer.cannon_deck":{"W":4,"p":[0,0,4,5],"c":[2.0,2.5],"a":270,"r":190},"cosmoteer.chaingun":{"W":3,"p":[0,2,3,4],"c":[1.5,4.0],"a":220},"cosmoteer.point_defense":{"W":1,"p":[0,1,1,1],"c":[0.5,1.5],"a":120,"r":150},"cosmoteer.disruptor":{"W":1,"p":[0,1,1,3],"c":[0.5,2.5],"a":200,"r":180},"cosmoteer.flak_cannon_large":{"W":3,"p":[0,1,3,5],"c":[1.5,3.5],"a":50},"cosmoteer.mining_laser_small":{"W":2,"p":[0,0,2,3],"c":[1.0,1.5],"a":270,"r":150},"cosmoteer.tractor_beam_emitter":{"W":5,"p":[0,0,5,5],"c":[2.5,2.5],"a":360}};
+const WEAPON_ARC={"cosmoteer.laser_blaster_small":{"W":1,"p":[0,1,1,2],"c":[0.5,0.46],"a":200,"r":260},"cosmoteer.laser_blaster_large":{"W":2,"p":[0,2,2,3],"c":[1,1],"a":190,"r":260},"cosmoteer.cannon_med":{"W":2,"p":[0,1,2,1],"c":[1,1],"a":115,"r":190},"cosmoteer.cannon_large":{"W":3,"p":[0,1,3,2],"c":[1.5,1],"a":115,"r":190},"cosmoteer.cannon_deck":{"W":4,"p":[0,0,4,5],"c":[2,1.9062],"a":270,"r":190},"cosmoteer.chaingun":{"W":3,"p":[0,2,3,4],"c":[1.5,1.0312],"a":220,"r":240},"cosmoteer.point_defense":{"W":1,"p":[0,1,1,1],"c":[0.5,0.8128],"a":120,"r":200},"cosmoteer.disruptor":{"W":1,"p":[0,1,1,3],"c":[0.5,0.3906],"a":200,"r":180},"cosmoteer.flak_cannon_large":{"W":3,"p":[0,1,3,5],"c":[1.5,1],"a":50,"r":150},"cosmoteer.mining_laser_small":{"W":2,"p":[0,0,2,3],"c":[1,2],"a":270,"r":150},"cosmoteer.tractor_beam_emitter":{"W":5,"p":[0,0,5,5],"c":[2.5,2.5],"a":360},"cosmoteer.resonance_beam_turret":{"W":4,"p":[0,0,4,4],"c":[2,2],"a":270}}; // pivots are each turret's rotation point from the rules (same part outlines in 2024 and 2026)
 function weaponArc(id,x,y,rot,flip){
   const S=WEAPON_ARC[id]; if(!S) return null;
   const R=(px,py)=>{ for(let k=0;k<rot;k++){ const t=px; px=-py; py=t; } return [px,py]; }, fx=v=>flip?S.W-v:v;
@@ -652,15 +663,16 @@ function drawWeaponArc(A,k,full){
   ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=(long?.035:.08)*k; ctx.beginPath(); if(fullCircle) ctx.arc(cx,cy,R,0,2*Math.PI); else { ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); } ctx.fill();
   ctx.globalAlpha=Math.min(1,.55*k); ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.stroke(); ctx.restore();
 }
-const SHIELD_ARC={"cosmoteer.shield_gen_small":{W:2,p:[0,1,2,2],c:[1,1.5],r:7.5,a:90},"cosmoteer.shield_gen_large":{W:3,p:[0,0,3,6],c:[1.5,1.5],r:13,a:160}};
-function shieldArc(id,x,y,rot,flip){
+const SHIELD_ARC={"cosmoteer.shield_gen_small":{W:2,p:[0,1,2,2],c:[1,1.5],r:7.5,a:90,ext:[1.5,1.5],rei:[1,.55]},"cosmoteer.shield_gen_large":{W:3,p:[0,0,3,6],c:[1.5,1.5],r:13,a:160,ocf:[1,.5]}}; // from the game rules (Oct 2026); overclock: small Extended/Reinforced, large one mode
+function shieldArc(id,x,y,rot,flip,oc,sm){
   const S=SHIELD_ARC[id]; if(!S) return null;
   const R=(px,py)=>{ for(let k=0;k<rot;k++){ const t=px; px=-py; py=t; } return [px,py]; }, fx=v=>flip?S.W-v:v;
   const a=R(fx(S.p[0]),S.p[1]), b=R(fx(S.p[0]+S.p[2]),S.p[1]+S.p[3]), ox=x-Math.min(a[0],b[0]), oy=y-Math.min(a[1],b[1]), c=R(fx(S.c[0]),S.c[1]);
-  return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, r:S.r, arc:S.a*Math.PI/180};
+  const f=oc!==1?[1,1]:S.ocf?S.ocf:(sm===1?S.rei:S.ext);
+  return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, r:S.r*f[0], arc:S.a*f[1]*Math.PI/180, col:oc===1?shieldModeColor(id,sm):"#8E5BD0"};
 }
 function drawShieldArc(A,k){
-  const s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=A.r*s, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2, col="#8E5BD0";
+  const s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=A.r*s, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2, col=A.col||"#8E5BD0";
   ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=.07*k; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); ctx.fill();
   ctx.globalAlpha=Math.min(1,.75*k); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.18); ctx.lineCap="round"; ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.stroke(); ctx.restore();
 }
@@ -713,7 +725,7 @@ function drawOverlays(){
     ctx.stroke(); ctx.restore(); }
   if(doorGhost) for(const g of [doorGhost,doorGhost.twin].filter(Boolean)) doorLine(g.d,(g.remove||!g.ok)?css("--warn"):acc,Math.max(4,s*.2),(g.ok&&!g.remove)?null:[4,3]);
   // shield arcs: faint coverage wedge plus the barrier itself at full range
-  if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawShieldArc(a,1); }
+  if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); if(a) drawShieldArc(a,1); }
     if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=shieldArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawShieldArc(a,1.6); } }
   // weapon firing arcs: short fans showing which directions each turret can aim (ranges are in the tooltip)
   { const wm=$("wArcMode").value; if(wm!=="off") for(const p of ship.parts){ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawWeaponArc(a,1,wm==="full"); }
@@ -1041,7 +1053,7 @@ function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length
 function editMsg(m,warn){ $("editMsg").className="msg"+(warn?" warn":""); $("editMsg").textContent=m||""; }
 function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=!(ship&&ship.parts.length); hint(); }
 function hint(){
-  { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } }
+  { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } const sr=$("smRow"); if(sr){ sr.hidden=!(op&&op.id==="cosmoteer.shield_gen_small"&&op.oc===1); if(op) $("smSel").value=String(op.sm===1?1:0); } }
   const h=$("hint"); if(!ship&&!tool){ h.innerHTML=""; return; }
   const mir=mirror.on?" Mirror is on.":"";
   if(tool==="door") h.innerHTML=`Placing <b>doors</b>: click a wall between two rooms to add a door, or click a door to remove it. <kbd>Esc</kbd> or right-click to stop.${mir}`;
@@ -1164,6 +1176,7 @@ $("showZones").addEventListener("change",()=>draw());
 $("showArcs").addEventListener("change",()=>draw());
 $("wArcMode").addEventListener("change",()=>draw());
 $("ocChk").addEventListener("change",()=>setOC($("ocChk").checked?1:0));
+$("smSel").addEventListener("change",()=>setSM(+$("smSel").value));
 $("area").addEventListener("change",()=>{ $("silLimit").value=$("area").value; draw(); });
 $("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; renderStats(); } });
 // on-screen rotate / delete (same as R and Delete)
@@ -1207,7 +1220,7 @@ stage.addEventListener("pointermove",e=>{
   } else {
   if(!p){ tip.style.display="none"; return; }
   const def=PARTS[p.id];
-  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}`;
+  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); return `<br>shield arc ${Math.round(a.arc*1800/Math.PI)/10}°, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
   }
   tip.style.display="block";
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
