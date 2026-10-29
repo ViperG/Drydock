@@ -171,6 +171,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
       <div class="ctl"><label for="mirror">Mirror</label><select id="mirror"><option value="off">Off</option><option value="lr">Left ↔ right</option><option value="tb">Top ↔ bottom</option><option value="ne">↗ Diagonal (bottom-left to top-right)</option><option value="nw">↖ Diagonal (top-left to bottom-right)</option></select></div>
       <div class="ctl"><label for="front">Front</label><select id="front"><option value="1">↑ Up</option><option value="2">↗ Up-right</option><option value="3">→ Right</option><option value="4">↘ Down-right</option><option value="5">↓ Down</option><option value="6">↙ Down-left</option><option value="7">← Left</option><option value="0">↖ Up-left</option></select></div>
       <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label><label><input type="checkbox" id="showArcs" checked> Show shield arcs</label></div>
+      <div class="ctl"><label for="wArcMode">Weapon arcs</label><select id="wArcMode"><option value="off">Off</option><option value="short">Short (direction only)</option><option value="full">Full range</option></select></div>
       <div class="checks" id="ocRow" hidden><label><input type="checkbox" id="ocChk"> Overclock this module <kbd>O</kbd></label></div>
       <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
       <div class="pal" id="pal" role="listbox" aria-label="Modules"></div>
@@ -637,6 +638,20 @@ function renderCheck(){
     +(tips.length?`<ul class="tips">${tips.map(x=>`<li><span>Tip:</span> ${x}</li>`).join("")}</ul>`:"");
 }
 // ---- shield arcs: vanilla range/arc from the game's shield rules (overclock modes not modelled) ----
+// ---- weapon firing arcs (vanilla FiringArc and projectile range from the game's rules) ----
+const WEAPON_ARC={"cosmoteer.laser_blaster_small":{"W":1,"p":[0,1,1,2],"c":[0.5,2.0],"a":200,"r":260},"cosmoteer.laser_blaster_large":{"W":2,"p":[0,2,2,3],"c":[1.0,3.5],"a":190,"r":260},"cosmoteer.cannon_med":{"W":2,"p":[0,1,2,1],"c":[1.0,1.5],"a":115,"r":190},"cosmoteer.cannon_large":{"W":3,"p":[0,1,3,2],"c":[1.5,2.0],"a":115,"r":190},"cosmoteer.cannon_deck":{"W":4,"p":[0,0,4,5],"c":[2.0,2.5],"a":270,"r":190},"cosmoteer.chaingun":{"W":3,"p":[0,2,3,4],"c":[1.5,4.0],"a":220},"cosmoteer.point_defense":{"W":1,"p":[0,1,1,1],"c":[0.5,1.5],"a":120,"r":150},"cosmoteer.disruptor":{"W":1,"p":[0,1,1,3],"c":[0.5,2.5],"a":200,"r":180},"cosmoteer.flak_cannon_large":{"W":3,"p":[0,1,3,5],"c":[1.5,3.5],"a":50},"cosmoteer.mining_laser_small":{"W":2,"p":[0,0,2,3],"c":[1.0,1.5],"a":270,"r":150},"cosmoteer.tractor_beam_emitter":{"W":5,"p":[0,0,5,5],"c":[2.5,2.5],"a":360}};
+function weaponArc(id,x,y,rot,flip){
+  const S=WEAPON_ARC[id]; if(!S) return null;
+  const R=(px,py)=>{ for(let k=0;k<rot;k++){ const t=px; px=-py; py=t; } return [px,py]; }, fx=v=>flip?S.W-v:v;
+  const a=R(fx(S.p[0]),S.p[1]), b=R(fx(S.p[0]+S.p[2]),S.p[1]+S.p[3]), ox=x-Math.min(a[0],b[0]), oy=y-Math.min(a[1],b[1]), c=R(fx(S.c[0]),S.c[1]);
+  return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, arc:S.a*Math.PI/180, r:S.r};
+}
+function drawWeaponArc(A,k,full){
+  // "full" fans out to the weapon's real range (when known); otherwise a short fan shows direction only
+  const long=full&&A.r, s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=long?A.r*s:Math.max(40,s*6), col="#C8423B", fullCircle=A.arc>=2*Math.PI-1e-3, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2;
+  ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=(long?.035:.08)*k; ctx.beginPath(); if(fullCircle) ctx.arc(cx,cy,R,0,2*Math.PI); else { ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); } ctx.fill();
+  ctx.globalAlpha=Math.min(1,.55*k); ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.stroke(); ctx.restore();
+}
 const SHIELD_ARC={"cosmoteer.shield_gen_small":{W:2,p:[0,1,2,2],c:[1,1.5],r:7.5,a:90},"cosmoteer.shield_gen_large":{W:3,p:[0,0,3,6],c:[1.5,1.5],r:13,a:160}};
 function shieldArc(id,x,y,rot,flip){
   const S=SHIELD_ARC[id]; if(!S) return null;
@@ -700,6 +715,9 @@ function drawOverlays(){
   // shield arcs: faint coverage wedge plus the barrier itself at full range
   if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawShieldArc(a,1); }
     if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=shieldArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawShieldArc(a,1.6); } }
+  // weapon firing arcs: short fans showing which directions each turret can aim (ranges are in the tooltip)
+  { const wm=$("wArcMode").value; if(wm!=="off") for(const p of ship.parts){ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawWeaponArc(a,1,wm==="full"); }
+    if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=weaponArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawWeaponArc(a,1.6,wm==="full"); } }
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
     ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
@@ -1144,6 +1162,7 @@ $("mirror").addEventListener("change",mirrorSetup);
 $("front").addEventListener("change",()=>{ if(!ship) return; ship.d.FlightDirection=+$("front").value; dirty=true; draw(); });
 $("showZones").addEventListener("change",()=>draw());
 $("showArcs").addEventListener("change",()=>draw());
+$("wArcMode").addEventListener("change",()=>draw());
 $("ocChk").addEventListener("change",()=>setOC($("ocChk").checked?1:0));
 $("area").addEventListener("change",()=>{ $("silLimit").value=$("area").value; draw(); });
 $("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; renderStats(); } });
@@ -1188,7 +1207,7 @@ stage.addEventListener("pointermove",e=>{
   } else {
   if(!p){ tip.style.display="none"; return; }
   const def=PARTS[p.id];
-  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}`;
+  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}`;
   }
   tip.style.display="block";
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
