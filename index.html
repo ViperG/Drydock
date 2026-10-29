@@ -262,8 +262,8 @@ const CATS = [
 ];
 const CAT = Object.fromEntries(CATS.map(([k,n,c])=>[k,{name:n,color:c}]));
 const PART_COLOR = {"cosmoteer.corridor":"#FFFFFF","cosmoteer.engine_room":"#FF9A1F","cosmoteer.heat_pipe_crossing":"#B94A22","cosmoteer.conveyor":"#FFFFFF","cosmoteer.heat_exchanger":"#FFFFFF","cosmoteer.hyperdrive_small":"#FFFFFF","cosmoteer.hyperdrive_med":"#FFFFFF","cosmoteer.hyperdrive_large":"#FFFFFF","cosmoteer.storage_2x2":"#D9CFB4","cosmoteer.storage_3x2":"#D9CFB4","cosmoteer.storage_3x3":"#D9CFB4","cosmoteer.storage_4x3":"#D9CFB4","cosmoteer.storage_4x4":"#D9CFB4"}; // per-part colors that differ from their group
-const colorOf = p => (p.cat==="shield" && p.oc===1) ? shieldModeColor(p.id,p.sm) : (PART_COLOR[p.id] || CAT[p.cat].color);
-// overclocked shields: bluish = Expanded (small shield, mode 0); pinkish = Hardened / shrunk (small mode 1, or a large shield)
+const colorOf = p => PART_COLOR[p.id] || CAT[p.cat].color;
+// overclocked shield ARCS (not the modules): bluish = Expanded (small shield, mode 0); pinkish = Hardened / shrunk (small mode 1, or a large shield)
 function shieldModeColor(id,sm){ return (id==="cosmoteer.shield_gen_small" && sm!==1) ? "#5A6FE0" : "#C452B4"; }
 function catOf(id){
   const d = PARTS[id]; if(!d) return "mod";
