@@ -382,7 +382,7 @@ function buildModel(d){
   const zoneAt=new Map(), zlist=[];
   for(const p of parts){ const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip); if(!zs.length) continue; zlist.push([p.i,zs]);
     for(const z of zs) forCells(z,(cx,cy)=>{ const k=cx+","+cy; let a=zoneAt.get(k); if(!a) zoneAt.set(k,a=[]); a.push([p.i,z.tag]); }); }
-  return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist, spots:new Map()};
+  return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist, spots:new Map(), wclear:new Map()};
 }
 
 // ---------- rendering ----------
@@ -640,6 +640,8 @@ function renderCheck(){
     if(pieces>1) issues.push(`${pieces} separate pieces: parts that don’t touch the main hull become separate ships.`); }
   { const bad=[]; for(const [i] of ship.zlist){ const p=P[i]; if(zoneProblem({id:p.id,x:p.x,y:p.y,w:p.w,h:p.h,rot:p.rot,hits:new Set()},[i])) bad.push(pretty(p.id)); }
     if(bad.length) issues.push(`${bad.length} part${bad.length>1?"s have":" has"} a blocked exhaust, firing lane or clearance zone (${esc([...new Set(bad)].slice(0,3).join(", "))}${new Set(bad).size>3?"…":""}).`); }
+  { const lg=P.filter(p=>p.id==="cosmoteer.shield_gen_large").map(p=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm), o=shieldOpenRuns(p.i,a); return [o.openArc,a.arc]; }).filter(([o,f])=>o<f*0.98);
+    if(lg.length) issues.push(`${lg.length} large shield${lg.length>1?"s are":" is"} partly blocked by other parts (${lg.slice(0,3).map(([o,f])=>Math.round(o*180/Math.PI)+"° of "+Math.round(f*180/Math.PI)+"°").join(", ")}).`); }
   { const n=ship.doors.filter(d=>!doorOk(d)).length; if(n) issues.push(`${n} door${n>1?"s are":" is"} on a wall the game doesn’t allow; it may drop ${n>1?"them":"it"}.`); }
   if(!P.some(p=>CREW_CAP[p.id])) issues.push("No crew quarters: the ship has nowhere to house crew.");
   const tips=[];
@@ -657,11 +659,30 @@ function weaponArc(id,x,y,rot,flip){
   const a=R(fx(S.p[0]),S.p[1]), b=R(fx(S.p[0]+S.p[2]),S.p[1]+S.p[3]), ox=x-Math.min(a[0],b[0]), oy=y-Math.min(a[1],b[1]), c=R(fx(S.c[0]),S.c[1]);
   return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, arc:S.a*Math.PI/180, r:S.r};
 }
+// Line of fire: a turret's own ship blocks its shots (only structure doesn't), so cast a ray per degree from the pivot
+// to the edge of the ship; a ray that hits one of our own parts (not structure, roof lights or the turret itself) is blocked.
+// Unlike shields, a turret's clear directions can have gaps, so every open stretch is kept.
+function weaponClearRuns(owner,A){
+  const b=ship.bounds, far=Math.hypot(Math.max(A.cx-b.minX,b.maxX-A.cx),Math.max(A.cy-b.minY,b.maxY-A.cy))+1;
+  const n=Math.max(1,Math.round(A.arc*180/Math.PI)), da=A.arc/n, a0=A.ang-A.arc/2, open=[];
+  for(let k=0;k<n;k++){ const th=a0+(k+.5)*da, dx=Math.cos(th), dy=Math.sin(th); let blocked=false;
+    for(let d=.3; d<=far && !blocked; d+=.25){ const q=ship.cell.get(Math.floor(A.cx+dx*d),Math.floor(A.cy+dy*d));
+      if(q && q.i!==owner && q.cat!=="structure" && !/roof_/.test(q.id)) blocked=true; }
+    open.push(!blocked); }
+  const runs=[]; let st=-1; for(let k=0;k<=n;k++){ if(k<n&&open[k]){ if(st<0) st=k; } else if(st>=0){ runs.push([a0+st*da,a0+k*da]); st=-1; } }
+  return {runs, clearArc:open.filter(Boolean).length*da};
+}
+function weaponClear(p,A){ if(!ship.wclear.has(p.i)) ship.wclear.set(p.i,weaponClearRuns(p.i,A)); return ship.wclear.get(p.i); }
 function drawWeaponArc(A,k,full){
   // "full" fans out to the weapon's real range (when known); otherwise a short fan shows direction only
-  const long=full&&A.r, s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=long?A.r*s:Math.max(40,s*6), col="#C8423B", fullCircle=A.arc>=2*Math.PI-1e-3, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2;
-  ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=(long?.035:.08)*k; ctx.beginPath(); if(fullCircle) ctx.arc(cx,cy,R,0,2*Math.PI); else { ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); } ctx.fill();
-  ctx.globalAlpha=Math.min(1,.55*k); ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.stroke(); ctx.restore();
+  const long=full&&A.r, s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=long?A.r*s:Math.max(40,s*6), col="#C8423B", a0=A.ang-A.arc/2, a1=A.ang+A.arc/2;
+  const runs=A.clear?A.clear.runs:[[a0,a1]], blockedSome=A.clear&&A.clear.clearArc<A.arc-1e-6;
+  ctx.save();
+  if(blockedSome){ ctx.globalAlpha=.4; ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([2,5]); ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.stroke(); }
+  for(const [b0,b1] of runs){ const whole=b1-b0>=2*Math.PI-1e-3;
+    ctx.fillStyle=col; ctx.globalAlpha=(long?.035:.08)*k; ctx.setLineDash([]); ctx.beginPath(); if(whole) ctx.arc(cx,cy,R,0,2*Math.PI); else { ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,b0,b1); ctx.closePath(); } ctx.fill();
+    ctx.globalAlpha=Math.min(1,.55*k); ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.stroke(); }
+  ctx.restore();
 }
 const SHIELD_ARC={"cosmoteer.shield_gen_small":{W:2,p:[0,1,2,2],c:[1,1.5],r:7.5,a:90,ext:[1.5,1.5],rei:[1,.55]},"cosmoteer.shield_gen_large":{W:3,p:[0,0,3,6],c:[1.5,1.5],r:13,a:160,ocf:[1,.5]}}; // from the game rules (Oct 2026); overclock: small Extended/Reinforced, large one mode
 function shieldArc(id,x,y,rot,flip,oc,sm){
@@ -671,10 +692,38 @@ function shieldArc(id,x,y,rot,flip,oc,sm){
   const f=oc!==1?[1,1]:S.ocf?S.ocf:(sm===1?S.rei:S.ext);
   return {cx:c[0]+ox, cy:c[1]+oy, ang:(-90+90*rot)*Math.PI/180, r:S.r*f[0], arc:S.a*f[1]*Math.PI/180, col:oc===1?shieldModeColor(id,sm):"#8E5BD0"};
 }
+// Large shields are blocked near the emitter: cast a ray per degree from the emitter; if it hits any part other than
+// structure (or another large shield's emitter top) within ~2 tiles, that degree of the arc is lost. Matches in-game tests
+// (a corridor or a neighbouring shield body beside the emitter cuts that side; side-by-side shields don't block each other)
+// and the game's built-in ships (median 96% open).
+const SHIELD_BLOCK_REACH=2;
+function largeEmitterTop(q){ const R=(px,py)=>{ for(let k=0;k<q.rot;k++){ const t=px; px=-py; py=t; } return [px,py]; }, fx=v=>q.flip?3-v:v;
+  const a=R(fx(0),0), b=R(fx(3),6), ox=q.x-Math.min(a[0],b[0]), oy=q.y-Math.min(a[1],b[1]), c=R(fx(0),0), d=R(fx(3),2);
+  return [Math.min(c[0],d[0])+ox, Math.min(c[1],d[1])+oy, Math.max(c[0],d[0])+ox, Math.max(c[1],d[1])+oy]; }
+function shieldOpenRuns(owner,A){
+  const n=Math.max(1,Math.round(A.arc*180/Math.PI)), da=A.arc/n, a0=A.ang-A.arc/2, open=[];
+  for(let k=0;k<n;k++){ const th=a0+(k+.5)*da, dx=Math.cos(th), dy=Math.sin(th); let blocked=false;
+    for(let d=.3; d<=SHIELD_BLOCK_REACH && !blocked; d+=.2){ const px=A.cx+dx*d, py=A.cy+dy*d, q=ship.cell.get(Math.floor(px),Math.floor(py));
+      if(!q||q.i===owner||q.cat==="structure"||/roof_/.test(q.id)) continue;
+      if(q.id==="cosmoteer.shield_gen_large"){ const o=largeEmitterTop(q); if(px>=o[0]&&px<o[2]&&py>=o[1]&&py<o[3]) continue; }
+      blocked=true; }
+    open.push(!blocked); }
+  // the arc shrinks rather than splitting: keep the continuous open stretch around the centre (or the longest one)
+  const runs=[]; let st=-1; for(let k=0;k<=n;k++){ if(k<n&&open[k]){ if(st<0) st=k; } else if(st>=0){ runs.push([st,k]); st=-1; } }
+  if(!runs.length) return {runs:[], openArc:0};
+  const mid=n/2; let best=runs.find(([s,e])=>s<=mid&&mid<=e) || runs.reduce((m,r)=>r[1]-r[0]>m[1]-m[0]?r:m);
+  return {runs:[[a0+best[0]*da,a0+best[1]*da]], openArc:(best[1]-best[0])*da};
+}
 function drawShieldArc(A,k){
   const s=cam.s, [cx,cy]=toScreen(A.cx,A.cy), R=A.r*s, a0=A.ang-A.arc/2, a1=A.ang+A.arc/2, col=A.col||"#8E5BD0";
-  ctx.save(); ctx.fillStyle=col; ctx.globalAlpha=.07*k; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha=Math.min(1,.75*k); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.18); ctx.lineCap="round"; ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.stroke(); ctx.restore();
+  const runs=A.open?A.open.runs:[[a0,a1]];
+  ctx.save();
+  if(A.open && A.open.openArc<A.arc-1e-6){ // blocked parts: faint dashed outline only
+    ctx.globalAlpha=.45; ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([4,5]); ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.stroke(); ctx.setLineDash([]); }
+  for(const [b0,b1] of runs){
+    ctx.fillStyle=col; ctx.globalAlpha=.07*k; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,b0,b1); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha=Math.min(1,.75*k); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.18); ctx.lineCap="round"; ctx.beginPath(); ctx.arc(cx,cy,R,b0,b1); ctx.stroke(); }
+  ctx.restore();
 }
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
@@ -725,11 +774,11 @@ function drawOverlays(){
     ctx.stroke(); ctx.restore(); }
   if(doorGhost) for(const g of [doorGhost,doorGhost.twin].filter(Boolean)) doorLine(g.d,(g.remove||!g.ok)?css("--warn"):acc,Math.max(4,s*.2),(g.ok&&!g.remove)?null:[4,3]);
   // shield arcs: faint coverage wedge plus the barrier itself at full range
-  if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); if(a) drawShieldArc(a,1); }
+  if($("showArcs").checked){ for(const p of ship.parts){ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); if(a){ if(p.id==="cosmoteer.shield_gen_large") a.open=shieldOpenRuns(p.i,a); drawShieldArc(a,1); } }
     if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=shieldArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawShieldArc(a,1.6); } }
   // weapon firing arcs: short fans showing which directions each turret can aim (ranges are in the tooltip)
-  { const wm=$("wArcMode").value; if(wm!=="off") for(const p of ship.parts){ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip); if(a) drawWeaponArc(a,1,wm==="full"); }
-    if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=weaponArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a) drawWeaponArc(a,1.6,wm==="full"); } }
+  { const wm=$("wArcMode").value; if(wm!=="off") for(const p of ship.parts){ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip); if(a){ a.clear=weaponClear(p,a); drawWeaponArc(a,1,wm==="full"); } }
+    if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=weaponArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a){ a.clear=weaponClearRuns(-1,a); drawWeaponArc(a,1.6,wm==="full"); } } }
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
     ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
@@ -1220,7 +1269,7 @@ stage.addEventListener("pointermove",e=>{
   } else {
   if(!p){ tip.style.display="none"; return; }
   const def=PARTS[p.id];
-  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); return `<br>shield arc ${Math.round(a.arc*1800/Math.PI)/10}°, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
+  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${(()=>{ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip), c=weaponClear(p,a), cd=Math.round(c.clearArc*180/Math.PI); return cd<WEAPON_ARC[p.id].a?` (${cd}° clear)`:""; })()}${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); const op=p.id==="cosmoteer.shield_gen_large"?shieldOpenRuns(p.i,a):null; return `<br>shield arc ${op&&op.openArc<a.arc-1e-6?`${Math.round(op.openArc*180/Math.PI)}° open of ${Math.round(a.arc*180/Math.PI)}°`:`${Math.round(a.arc*1800/Math.PI)/10}°`}, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
   }
   tip.style.display="block";
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
