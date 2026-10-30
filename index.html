@@ -121,7 +121,9 @@ dialog.io .err{color:var(--warn);font-size:13px;margin-right:auto}
 #wInfo{flex:none}
 #wInfo .wbody{padding:0 10px 9px;margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
 #wInfo .wbody dt{color:var(--muted)} #wInfo .wbody dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
-#wInfo .wbody dd.warn{color:var(--warn)} #wInfo .wbody .sub{grid-column:1/-1;font-size:11.5px;color:var(--muted);margin-top:2px}
+#wInfo .wbody dd.warn{color:var(--warn)} #wInfo .wbody dd.gold{color:#B8861B;font-weight:600}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #wInfo .wbody dd.gold{color:#E8BE4A}}
+:root[data-theme="dark"] #wInfo .wbody dd.gold{color:#E8BE4A} #wInfo .wbody .sub{grid-column:1/-1;font-size:11.5px;color:var(--muted);margin-top:2px}
 #wRecent{flex:0 1 auto;max-height:100%}
 #wRecent.collapsed{flex:none}
 #recentList{overflow:auto;padding:0 6px 6px;display:flex;flex-direction:column;gap:2px;min-height:0}
@@ -855,18 +857,21 @@ const shipDPS=()=>ship.parts.reduce((s,p)=>s+(p.id==="cosmoteer.ion_beam_emitter
 function renderInfoWidget(cost,noCost,mass,beds,need){
   const el=$("wInfoBody"); if(!el) return; if(!ship||!ship.parts.length){ el.innerHTML='<dt>No ship yet</dt><dd></dd>'; return; }
   const v=shipSpeed();
-  el.innerHTML=`<dt>Cost</dt><dd>${fmt(cost)}${noCost?"+":""}</dd><dt>Mass</dt><dd>${fmt(mass*1000)}</dd>`+
+  el.innerHTML=`<dt>Cost</dt><dd class="gold">${fmt(cost)}${noCost?"+":""}</dd><dt>Mass</dt><dd>${fmt(mass*1000)}</dd>`+
     `<dt>Crew needed</dt><dd class="${need>beds?"warn":""}">${fmt(need)} / ${fmt(beds)} beds</dd>`+
     `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"no forward thrust"}</dd>`+
     `<dt>DPS</dt><dd>${shipDPS()?"≈ "+fmt(shipDPS()):"—"}</dd>`+
-    (()=>{ const H=shipHeat(); return `<dt title="Heat per second: made by overclocked parts at full load / removed by radiators">Heat /s</dt><dd class="${H.made>H.cool?"warn":""}">${fmt(H.made)} / ${fmt(H.cool)}</dd>`; })()+
-    `<div class="sub">Speed counts forward thrust, engine rooms and overclocked thrusters against mass and the game’s drag. DPS counts lasers, cannons, disruptors and ion beams, with prism networks combined (not overclocked). Heat /s is made by overclocked parts at full load / removed by radiators.</div>`;
+    (()=>{ const H=shipHeat(); return `<dt title="Heat per second: made by overclocked parts at full load / removed by radiators">Heat /s</dt><dd class="${H.made>H.cool?"warn":""}">${fmt(H.made)} / ${fmt(H.cool)}</dd>`; })();
 }
 let recent=[];
-function noteRecent(id){ if(!id||id==="door") return; recent=[id,...recent.filter(x=>x!==id)].slice(0,14); renderRecent(); }
+const RECENT_MAX=8;
+function noteRecent(id){ if(!id) return; recent=[id,...recent.filter(x=>x!==id)].slice(0,RECENT_MAX); renderRecent(); }
 const iconCache=new Map();
 function blockIcon(id){
   const key=id+matchMedia("(prefers-color-scheme: dark)").matches; if(iconCache.has(key)) return iconCache.get(key);
+  if(id==="door"){ const c=document.createElement("canvas"); c.width=c.height=68; const x=c.getContext("2d");
+    x.fillStyle="#fff"; x.fillRect(8,27,52,14); x.strokeStyle="#000"; x.lineWidth=14; x.setLineDash([7,7]); x.beginPath(); x.moveTo(8,34); x.lineTo(60,34); x.stroke();
+    x.setLineDash([]); x.lineWidth=2; x.strokeStyle="#8A949C"; x.strokeRect(8,27,52,14); const u=c.toDataURL(); iconCache.set(key,u); return u; }
   const S=68, c=document.createElement("canvas"); c.width=c.height=S; const x=c.getContext("2d"), cat=catOf(id), col=colorOf({id,cat}), [w,h]=fullSize(id);
   const sc=(S-10)/Math.max(w,h,1), ox=(S-w*sc)/2, oy=(S-h*sc)/2;
   x.lineWidth=2; x.strokeStyle=shade(col,-.35); x.fillStyle=cat==="structure"?"rgba(120,130,140,.35)":shade(col,.3);
@@ -1474,7 +1479,7 @@ function doorClick(e){
   if(g.remove){ const rm=new Set(all.filter(k=>k.remove).map(k=>doorKey(k.d))); commit(null,"Door removed.",D.filter(x=>!rm.has(doorKey(x)))); }
   else { if(!g.ok){ editMsg("A door needs a room or corridor on both sides, at a spot the module allows (shown as blue dashes).",true); return; }
     for(const k of all) if(!k.remove&&k.ok) D.push({Cell:[...k.d.Cell],ID:"cosmoteer.door",Orientation:k.d.Orientation});
-    commit(null,"",D); }
+    commit(null,"",D); noteRecent("door"); }
   doorHover(e); draw(); }
 function removeDoorSel(){ const d=ship.d.Doors[selDoor]; if(!d) return; const rm=new Set([doorKey(d)]); if(mirror.on) rm.add(doorKey(mirrorDoor(d)));
   commit(null,rm.size>1?"Removed the door and its mirror twin.":"Door removed.",ship.d.Doors.filter(x=>!rm.has(doorKey(x)))); selDoor=-1; hint(); draw(); }
