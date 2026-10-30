@@ -34,7 +34,7 @@ h1,h2,.num{font-family:"Chakra Petch","Bahnschrift","Arial Narrow",sans-serif;fo
 header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
 header h1{margin:0;font-size:22px}
 header h1 small{font:400 13px "IBM Plex Sans",sans-serif;color:var(--muted);margin-left:8px}
-.beta{display:inline-block;font:700 10.5px "Chakra Petch","Arial Narrow",sans-serif;letter-spacing:.1em;color:#E0882A;border:1.5px solid #E0882A;border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:super;transform:rotate(-8deg) translateY(-2px);line-height:1.5}
+.beta{display:inline-block;position:relative;z-index:1;font:700 10.5px "Chakra Petch","Arial Narrow",sans-serif;letter-spacing:.06em;color:#E0882A;background:var(--panel);border:1.5px solid #E0882A;border-radius:4px;padding:0 5px;margin-right:-14px;vertical-align:super;transform:rotate(-8deg) translate(2px,-8px);line-height:1.5}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
 button,.filebtn{font:500 14px "IBM Plex Sans",sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
 button:hover,.filebtn:hover{border-color:var(--accent)}
@@ -167,7 +167,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
 </head>
 <body>
 <header>
-  <h1><span class="beta" title="Still in development">BETA</span>Drydock <small>Cosmoteer ship editor</small><button id="keysBtn" class="infolink">⌨ Shortcuts</button><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
+  <h1><span class="beta" title="Updated for the Meltdown update">Meltdown!</span>Drydock <small>Cosmoteer ship editor</small><button id="keysBtn" class="infolink">⌨ Shortcuts</button><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
   <div class="controls">
     <div class="seg" role="group" aria-label="View mode">
       <button id="mInt" aria-pressed="true">Interior</button>
