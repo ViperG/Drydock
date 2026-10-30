@@ -911,20 +911,20 @@ function drawPrismGlyph(p){
   const [cx,cy]=toScreen(cx0,cy0), R=Math.min(p.w,p.h)*s*.42, pt=a=>[cx+Math.cos(a)*R,cy+Math.sin(a)*R];
   const v=[pt(th),pt(th+2.0944),pt(th-2.0944)];
   ctx.save(); ctx.beginPath(); ctx.moveTo(...v[0]); ctx.lineTo(...v[1]); ctx.lineTo(...v[2]); ctx.closePath();
-  ctx.fillStyle="#5BD3EF"; ctx.globalAlpha=.92; ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle="#1C6F8C"; ctx.lineWidth=Math.max(1,s*.06); ctx.stroke();
+  ctx.fillStyle="#E8574B"; ctx.globalAlpha=.92; ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle="#8A1F17"; ctx.lineWidth=Math.max(1,s*.06); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(...v[0]); ctx.lineTo(cx,cy); ctx.moveTo(...v[1]); ctx.lineTo(cx,cy); ctx.moveTo(...v[2]); ctx.lineTo(cx,cy); ctx.strokeStyle="rgba(255,255,255,.55)"; ctx.lineWidth=Math.max(1,s*.04); ctx.stroke();
   ctx.restore();
 }
 function drawAimPoint(a,b,hi){ // dashed line to an aimed spot, ending in a small target ring
   const s=cam.s, [x0,y0]=toScreen(a[0],a[1]), [x1,y1]=toScreen(b[0],b[1]), r=Math.max(4,s*.35);
-  ctx.save(); ctx.strokeStyle="#2FB7E0"; ctx.globalAlpha=hi?1:.75; ctx.lineWidth=Math.max(1.5,s*(hi?.12:.08)); ctx.setLineDash([6,5]);
+  ctx.save(); ctx.strokeStyle="#E0483C"; ctx.globalAlpha=hi?1:.75; ctx.lineWidth=Math.max(1.5,s*(hi?.12:.08)); ctx.setLineDash([6,5]);
   ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(x1,y1,r,0,7); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x1-r*1.5,y1); ctx.lineTo(x1+r*1.5,y1); ctx.moveTo(x1,y1-r*1.5); ctx.lineTo(x1,y1+r*1.5); ctx.stroke(); ctx.restore();
 }
 function drawAimLine(a,b,hi){
   const s=cam.s, dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy); if(L<.1) return; const ux=dx/L, uy=dy/L, end=[b[0]-ux*.95,b[1]-uy*.95];
   const [x0,y0]=toScreen(a[0]+ux*.6,a[1]+uy*.6), [x1,y1]=toScreen(...end), hw=Math.max(5,s*.28);
-  ctx.save(); ctx.strokeStyle="#2FB7E0"; ctx.fillStyle="#2FB7E0"; ctx.globalAlpha=hi?1:.8; ctx.lineWidth=Math.max(2,s*(hi?.16:.11)); ctx.lineCap="round";
+  ctx.save(); ctx.strokeStyle="#E0483C"; ctx.fillStyle="#E0483C"; ctx.globalAlpha=hi?1:.8; ctx.lineWidth=Math.max(2,s*(hi?.16:.11)); ctx.lineCap="round";
   ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x1+ux*hw,y1+uy*hw); ctx.lineTo(x1-uy*hw*.7,y1+ux*hw*.7); ctx.lineTo(x1+uy*hw*.7,y1-ux*hw*.7); ctx.closePath(); ctx.fill(); ctx.restore();
 }
@@ -984,7 +984,7 @@ function drawOverlays(){
     if(ghost) for(const g of [ghost,ghost.twin].filter(Boolean)){ const a=weaponArc(g.id,g.x,g.y,g.rot,!!g.flip); if(a){ a.clear=weaponClearRuns(-1,a); drawWeaponArc(a,1.6,wm==="full"); } } }
   // ion aim lines (always shown) and, while aiming, the prisms you can pick
   for(let i=0;i<ship.parts.length;i++){ const tq=aimTarget(i); if(tq){ drawAimLine(partCenter(ship.parts[i]),partCenter(tq),i===sel); continue; } const ap=aimPoint(i); if(ap) drawAimPoint(partCenter(ship.parts[i]),ap,i===sel); }
-  if(aimFrom>=0) for(const q of ship.parts) if(IS_PRISM(q.id)&&q.i!==aimFrom) box(q.x,q.y,q.w,q.h,"#2FB7E0",null,true);
+  if(aimFrom>=0) for(const q of ship.parts) if(IS_PRISM(q.id)&&q.i!==aimFrom) box(q.x,q.y,q.w,q.h,"#E0483C",null,true);
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
     ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
