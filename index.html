@@ -711,7 +711,11 @@ function renderCheck(){
       :`${H.oc} overclocked part${H.oc>1?"s make":" makes"} about ${fmt(H.made)} heat/s, and the ship has no radiators. It will overheat.`); }
   { const n=ship.doors.filter(d=>!doorOk(d)).length; if(n) issues.push(`${n} door${n>1?"s are":" is"} on a wall the game doesn’t allow; it may drop ${n>1?"them":"it"}.`); }
   if(!P.some(p=>CREW_CAP[p.id])) issues.push("No crew quarters: the ship has nowhere to house crew.");
+  const bedsN=P.reduce((s,p)=>s+(CREW_CAP[p.id]||0),0), needN=P.reduce((s,p)=>s+(RULES_STATS.crew[p.id]||0),0), recN=Math.max(needN,shipRecCrew());
+  if(bedsN && needN>bedsN) issues.push(`Not enough beds: the modules need at least ${needN} crew, but there are only ${bedsN} beds.`);
   const tips=[];
+  { const b=P.reduce((s,p)=>s+(CREW_CAP[p.id]||0),0), n=P.reduce((s,p)=>s+(RULES_STATS.crew[p.id]||0),0), r=Math.max(n,shipRecCrew());
+    if(b>=n && r>b) tips.push(`Recommended crew is ${r}, but there are only ${b} beds. Extra crew help carry power and ammo, so modules may run slower when busy.`); }
   { const n=ionNetwork(), over=[...n.counts].filter(([i,c])=>c>2&&IS_PRISM(P[i].id));
     if(over.length) tips.push(`${over.length} prism${over.length>1?"s take":" takes"} more than 2 beams. Each extra beam counts for less (100%, 75%, 56%…), so feeding prisms in pairs (2:1) wastes the least energy.`); }
   if(!P.some(p=>p.id==="cosmoteer.airlock")) tips.push("No airlock: crew can’t leave the ship to board others or move between ships.");
@@ -853,12 +857,17 @@ function shipHeat(){
     if(p.id==="cosmoteer.radiator"){ rads++; cool+=zoneProblem({id:p.id,x:p.x,y:p.y,w:p.w,h:p.h,rot:p.rot,hits:new Set()},[p.i])?RADIATOR_COOLING/2:RADIATOR_COOLING; } }
   return {made,cool,oc,rads};
 }
+// Recommended crew (the game's RecCrew stat): crew required + 4 per battery/s of power used, or + 2 per ammo/s.
+// Resolved from the current rules for most parts; the rest fall back to their minimum crew.
+const REC_CREW={"cosmoteer.cannon_large": 7.93, "cosmoteer.cannon_med": 3.22, "cosmoteer.chaingun": 9.0, "cosmoteer.chaingun_magazine": 2.0, "cosmoteer.control_room_large": 7.27, "cosmoteer.control_room_med": 3.13, "cosmoteer.control_room_small": 1.07, "cosmoteer.disruptor": 3.0, "cosmoteer.engine_room": 2.4, "cosmoteer.factory_diamond": 8.0, "cosmoteer.flak_cannon_large": 11.0, "cosmoteer.hyperdrive_beacon": 6.8, "cosmoteer.ion_beam_emitter": 7.0, "cosmoteer.laser_blaster_small": 2.07, "cosmoteer.mining_laser_small": 3.4, "cosmoteer.point_defense": 2.1, "cosmoteer.resonance_beam_turret": 11.0, "cosmoteer.sensor_array": 4.8, "cosmoteer.shield_gen_large": 2.8, "cosmoteer.shield_gen_small": 2.4, "cosmoteer.thruster_huge": 0.8, "cosmoteer.thruster_large": 0.4, "cosmoteer.thruster_med": 0.2, "cosmoteer.thruster_rocket_nozzle": 0.6, "cosmoteer.thruster_small": 0.06};
+const recCrewOf=id=>REC_CREW[id]??RULES_STATS.crew[id]??0;
+const shipRecCrew=()=>Math.ceil(ship.parts.reduce((s,p)=>s+recCrewOf(p.id),0)-1e-9);
 const shipDPS=()=>ship.parts.reduce((s,p)=>s+(p.id==="cosmoteer.ion_beam_emitter"?0:(WEAPON_DPS[p.id]||0)),0)+ionNetwork().dps;
 function renderInfoWidget(cost,noCost,mass,beds,need){
   const el=$("wInfoBody"); if(!el) return; if(!ship||!ship.parts.length){ el.innerHTML='<dt>No ship yet</dt><dd></dd>'; return; }
   const v=shipSpeed();
   el.innerHTML=`<dt>Cost</dt><dd class="gold">${fmt(cost)}${noCost?"+":""}</dd><dt>Mass</dt><dd>${fmt(mass*1000)}</dd>`+
-    `<dt>Crew needed</dt><dd class="${need>beds?"warn":""}">${fmt(need)} / ${fmt(beds)} beds</dd>`+
+    (()=>{ const rec=Math.max(need,shipRecCrew()); return `<dt title="The game’s recommended crew: required crew plus crew to carry power and ammo (minimum required: ${fmt(need)})">Crew</dt><dd class="${rec>beds?"warn":""}">${fmt(rec)}</dd><dt>Beds</dt><dd class="${rec>beds?"warn":""}">${fmt(beds)}</dd>`; })()+
     `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"no forward thrust"}</dd>`+
     `<dt>DPS</dt><dd>${shipDPS()?"≈ "+fmt(shipDPS()):"—"}</dd>`+
     (()=>{ const H=shipHeat(); return `<dt title="Heat per second: made by overclocked parts at full load / removed by radiators">Heat /s</dt><dd class="${H.made>H.cool?"warn":""}">${fmt(H.made)} / ${fmt(H.cool)}</dd>`; })();
