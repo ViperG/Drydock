@@ -21,6 +21,7 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 **Edit it**
 - Searchable module list; click a module, then click to place it
 - Move, rotate and delete modules; copy and paste them
+- Multi-select: Shift+drag a box or Shift+click parts, then move, delete or copy/paste the whole group (Ctrl+A selects everything)
 - Add and remove doors, limited to the spots each module allows
 - A ship check that warns about a missing control room, disconnected pieces, blocked thrusters or weapons, invalid doors, and overclocked ships that make more heat than their radiators remove
 - Placing a module on corridor, structure or armor replaces it; modules you remove leave corridor behind
@@ -74,11 +75,13 @@ That's a complete offline ship editor. It works without an internet connection; 
 | **R** | Rotate the module you're placing or the selected one |
 | **Delete** / **Backspace** | Remove the selected module or door |
 | **O** | Toggle overclock on the selected module |
-| **Ctrl+C** / **Ctrl+V** | Copy the selected module / place copies of it |
+| **Shift**+drag / **Shift**+click | Select several parts |
+| **Ctrl+A** | Select every part |
+| **Ctrl+C** / **Ctrl+V** | Copy the selected module or group / place copies of it |
 | **?** | Show all shortcuts |
 | **Esc** | Stop placing, or deselect |
 | **Ctrl+Z** / **Ctrl+Y** | Undo / redo |
-| Scroll / drag | Zoom / pan |
+| Scroll / drag | Zoom / pan (pinch with two fingers on touch screens) |
 
 On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the same job.
 
@@ -88,7 +91,7 @@ On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the 
 - Recommended crew uses the game's own formula (required crew plus crew to carry power and ammo) for most parts; a few (deck cannon, large laser, missiles, railguns, factories, pumps, boost thruster, tractor beam) fall back to their minimum crew. Crew roles and priorities on loaded ships are kept but can't be edited.
 - Heat counts overclocked parts at full load against radiators (1,100/s each); lasers, chainguns, railguns, factories and power storage aren't counted yet, and heat-pipe connections aren't checked.
 - Max speed is an estimate from forward thrust (including engine rooms and overclocked thrusters), mass and the game's drag.
-- DPS counts lasers, cannons, disruptors and ion beams without overclock, combining prism networks with the game's per-beam falloff (100%, 75%, 56%…, so 2:1 is most efficient); railguns, missiles, chainguns, flak and the lance aren't counted yet.
+- DPS (without overclock) counts lasers, cannons, disruptors, ion beams (with prism networks and their per-beam falloff, so 2:1 is most efficient), chainguns at full spin, flak and railgun launchers (without accelerators); missiles and the resonance lance aren't counted yet.
 - The thermal safety setting is kept as saved but can't be changed yet.
 - Very large hulls (hundreds of thousands of parts) can be slow.
 
