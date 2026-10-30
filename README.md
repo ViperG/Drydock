@@ -15,14 +15,14 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 - Interior and exterior views, with color-coded modules, doors, heat-pipe networks and slanted armor drawn at their real angles
 - Hover any module or door for details
 - Stats: part count, cost, crew needed and capacity, footprint, mass and overclocked modules
-- A collapsible **Ship info** card over the view: cost, mass, crew needed vs. beds, estimated max speed and DPS
+- A collapsible **Ship info** card over the view: cost, mass, crew needed vs. beds, estimated max speed, DPS, and heat made vs. cooled
 - A **Recent blocks** panel with block previews for quick reuse, docked on the right or along the bottom
 
 **Edit it**
 - Searchable module list; click a module, then click to place it
 - Move, rotate and delete modules; copy and paste them
 - Add and remove doors, limited to the spots each module allows
-- A ship check that warns about a missing control room, disconnected pieces, blocked thrusters or weapons, and invalid doors
+- A ship check that warns about a missing control room, disconnected pieces, blocked thrusters or weapons, invalid doors, and overclocked ships that make more heat than their radiators remove
 - Placing a module on corridor, structure or armor replaces it; modules you remove leave corridor behind
 - Mirror mode: left ↔ right, top ↔ bottom, or either diagonal
 - Red no-build zones for thruster exhaust, weapon firing lanes and radiators, enforced as you build
@@ -86,6 +86,7 @@ On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the 
 
 - The thermal canister missile factory's price (18,000) is worked out from its materials; other factories cost a few percent more in game, so it may be slightly low.
 - Crew needed counts each module's required crew, not the game's higher "recommended" figure. Crew roles and priorities on loaded ships are kept but can't be edited.
+- Heat counts overclocked parts at full load against radiators (1,100/s each); lasers, chainguns, railguns, factories and power storage aren't counted yet, and heat-pipe connections aren't checked.
 - Max speed is an estimate from forward thrust (including engine rooms and overclocked thrusters), mass and the game's drag.
 - DPS counts lasers, cannons, disruptors and ion beams without overclock, combining prism networks with the game's per-beam falloff (100%, 75%, 56%…, so 2:1 is most efficient); railguns, missiles, chainguns, flak and the lance aren't counted yet.
 - The thermal safety setting is kept as saved but can't be changed yet.
