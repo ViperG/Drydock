@@ -47,7 +47,7 @@ button:focus-visible,.filebtn:focus-within{outline:2px solid var(--accent);outli
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
 .filebtn input{display:none}
 main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
-#stage{position:relative;min-height:320px;overflow:hidden;cursor:grab}
+#stage{touch-action:none;position:relative;min-height:320px;overflow:hidden;cursor:grab}
 #stage.drag{cursor:grabbing}
 #stage.dropping::after{content:"Drop the .ship.png to open it";position:absolute;inset:16px;border:2px dashed var(--accent);border-radius:10px;display:grid;place-items:center;font:600 18px "Chakra Petch",sans-serif;color:var(--accent);background:color-mix(in srgb,var(--paper) 80%,transparent)}
 canvas{display:block;width:100%;height:100%}
@@ -261,11 +261,13 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <tr><td><kbd>R</kbd></td><td>Rotate the module you’re placing or the selected one</td></tr>
     <tr><td><kbd>Del</kbd> / <kbd>Backspace</kbd></td><td>Remove the selected module or door</td></tr>
     <tr><td><kbd>O</kbd></td><td>Overclock the selected module on or off</td></tr>
-    <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copy the selected module</td></tr>
+    <tr><td><kbd>Shift</kbd> + drag / click</td><td>Select several parts (box, or add/remove one)</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>A</kbd></td><td>Select every part</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copy the selected module or group</td></tr>
     <tr><td><kbd>Ctrl</kbd> + <kbd>V</kbd></td><td>Place copies of it (same rotation and overclock)</td></tr>
     <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd></td><td>Undo / redo</td></tr>
     <tr><td><kbd>Esc</kbd> or right-click</td><td>Stop placing, or deselect</td></tr>
-    <tr><td>Scroll / drag</td><td>Zoom / pan</td></tr>
+    <tr><td>Scroll / drag</td><td>Zoom / pan (pinch with two fingers on touch screens)</td></tr>
     <tr><td><kbd>?</kbd></td><td>Show this list</td></tr>
   </table>
 </dialog>
@@ -816,10 +818,12 @@ function shipSpeed(){
   if(!(m>0&&F>0)) return 0; const a=F/m;
   return a/DRAG_LIN<=DRAG_KNEE ? a/DRAG_LIN : Math.cbrt(a/DRAG_C);
 }
-// Damage per second (not overclocked). Cannons and the disruptor are damage per shot / fire interval from the current rules;
-// the rest come from the ContestMath cosmo-shipbuilder table (Dec 2024). Railguns, missiles, chainguns, flak and the lance aren't counted yet.
-const WEAPON_DPS={"cosmoteer.cannon_med":833,"cosmoteer.cannon_large":1778,"cosmoteer.cannon_deck":6000,"cosmoteer.disruptor":200,
-  "cosmoteer.laser_blaster_small":667,"cosmoteer.laser_blaster_large":1778,"cosmoteer.ion_beam_emitter":2500};
+// Damage per second (not overclocked), all from the current rules (Oct 2026): damage per shot x rate of fire.
+// Chaingun is fully spun up (30 shots/s); railgun is one launcher without accelerators; flak is its damage vs ships.
+// Missiles and the resonance lance aren't counted (damage pools / several missile types).
+const WEAPON_DPS={"cosmoteer.laser_blaster_small":667,"cosmoteer.laser_blaster_large":1778,"cosmoteer.cannon_med":833,"cosmoteer.cannon_large":1778,
+  "cosmoteer.cannon_deck":6000,"cosmoteer.disruptor":200,"cosmoteer.ion_beam_emitter":2500,"cosmoteer.chaingun":18000,"cosmoteer.flak_cannon_large":7000,
+  "cosmoteer.railgun_launcher":750};
 // Ion networks: a prism's beam strength is its incoming beams, strongest first, weighted 1, 0.75, 0.75^2, ... (ReductionFactorPerBeam
 // in the prism rules; its damage scales with the stored ion energy). One emitter beam = 1. Chains pass a prism's output on as one input.
 // Only beams that leave the network count toward DPS: prisms not aimed at another prism, and emitters not feeding a prism.
@@ -868,7 +872,7 @@ function renderInfoWidget(cost,noCost,mass,beds,need){
   const v=shipSpeed();
   el.innerHTML=`<dt>Cost</dt><dd class="gold">${fmt(cost)}${noCost?"+":""}</dd><dt>Mass</dt><dd>${fmt(mass*1000)}</dd>`+
     (()=>{ const rec=Math.max(need,shipRecCrew()); return `<dt title="The game’s recommended crew: required crew plus crew to carry power and ammo (minimum required: ${fmt(need)})">Crew</dt><dd class="${rec>beds?"warn":""}">${fmt(rec)}</dd><dt>Beds</dt><dd class="${rec>beds?"warn":""}">${fmt(beds)}</dd>`; })()+
-    `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"no forward thrust"}</dd>`+
+    `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"—"}</dd>`+
     `<dt>DPS</dt><dd>${shipDPS()?"≈ "+fmt(shipDPS()):"—"}</dd>`+
     (()=>{ const H=shipHeat(); return `<dt title="Heat per second: made by overclocked parts at full load / removed by radiators">Heat /s</dt><dd class="${H.made>H.cool?"warn":""}">${fmt(H.made)} / ${fmt(H.cool)}</dd>`; })();
 }
@@ -960,6 +964,33 @@ function drawAimLine(a,b,hi){
   ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x1+ux*hw,y1+uy*hw); ctx.lineTo(x1-uy*hw*.7,y1+ux*hw*.7); ctx.lineTo(x1+uy*hw*.7,y1-ux*hw*.7); ctx.closePath(); ctx.fill(); ctx.restore();
 }
+// ---- multi-select: move / delete / copy a group of parts ----
+function groupItems(idxs){ return idxs.map(i=>ship.d.Parts[i]); }
+// ghost for a group shifted by (dx,dy); ok unless it leaves the build area or lands on a module outside the group
+function makeGroupGhost(items,dx,dy,ignore){
+  const g={items,dx,dy,ok:true,cells:[]};
+  for(const p of items){ const [w,h]=footprint(p.ID,(p.Rotation|0)%4), x=p.Location[0]+dx, y=p.Location[1]+dy; g.cells.push({id:p.ID,x,y,w,h});
+    if(!inArea(x,y,w,h)) g.ok=false;
+    for(let i=0;i<w&&g.ok;i++) for(let j=0;j<h;j++){ const q=ship.cell.get(x+i,y+j); if(q&&!ignore.has(q.i)&&!isHull(q.id)&&!isRoof(q.id)&&!isRoof(p.ID)){ g.ok=false; break; } }
+    if(IS_PRISM(p.ID)) for(let i=0;i<2;i++) for(let j=0;j<2;j++){ const q=ship.cell.get(x+i,y+j); if(!(q&&(q.id==="cosmoteer.structure"||ignore.has(q.i)||items.some(o=>!IS_PRISM(o.ID)&&false)))) { if(!(q&&ignore.has(q.i))) g.ok=false; } } }
+  return g;
+}
+function moveGroup(dx,dy){
+  const idx=[...multi], P=ship.d.Parts, adds=idx.map(i=>{ const o=P[i]; return withOC(mk(o.ID,o.Location[0]+dx,o.Location[1]+dy,o.Rotation|0,o.FlipX,o._o),o); });
+  const next=editParts(P,idx,adds); commit(next,`Moved ${adds.length} parts.`); for(let k=0;k<adds.length;k++) multi.add(next.firstAdd+k); hint(); draw();
+}
+function removeGroup(){ const n=multi.size; commit(editParts(ship.d.Parts,[...multi],[]),`Removed ${n} parts.`); hint(); draw(); }
+function copyGroup(){
+  const items=groupItems([...multi]), mx=Math.min(...items.map(p=>p.Location[0])), my=Math.min(...items.map(p=>p.Location[1]));
+  groupClip=items.map(p=>({ID:p.ID,Location:[p.Location[0]-mx,p.Location[1]-my],Rotation:p.Rotation|0,FlipX:!!p.FlipX,OC:p.OC,SM:p.SM})); clip=null;
+  editMsg(`Copied ${items.length} parts. Press Ctrl+V to place copies.`);
+}
+function startGroupPaste(){ if(!groupClip) return; tool="__group"; sel=-1; multi.clear(); ghost=null; renderPalette(); hint(); editMsg(`Placing copies of ${groupClip.length} parts.`); }
+function placeGroup(){
+  if(!groupGhost) return; if(!groupGhost.ok){ editMsg("Can’t place the group there: it would land on another module or leave the build area.",true); return; }
+  const adds=groupClip.map(p=>{ const n=mk(p.ID,p.Location[0]+groupGhost.dx,p.Location[1]+groupGhost.dy,p.Rotation,p.FlipX); if(p.OC!==undefined) n.OC=p.OC; if(p.SM!==undefined) n.SM=p.SM; return n; });
+  commit(editParts(ship.d.Parts,[],adds),`Placed ${adds.length} parts.`);
+}
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
 function drawCross(){
@@ -1017,6 +1048,12 @@ function drawOverlays(){
   // ion aim lines (always shown) and, while aiming, the prisms you can pick
   for(let i=0;i<ship.parts.length;i++){ const tq=aimTarget(i); if(tq){ drawAimLine(partCenter(ship.parts[i]),partCenter(tq),i===sel); continue; } const ap=aimPoint(i); if(ap) drawAimPoint(partCenter(ship.parts[i]),ap,i===sel); }
   if(aimFrom>=0) for(const q of ship.parts) if(IS_PRISM(q.id)&&q.i!==aimFrom) box(q.x,q.y,q.w,q.h,"#E0483C",null,true);
+  // multi-selection, selection box and group ghost
+  for(const i of multi){ const q=ship.parts[i]; if(q){ const f=fullRect(q); box(f.x,f.y,f.w,f.h,acc,null,false); } }
+  if(drag&&drag.kind==="box"&&drag.moved){ const [ax,ay]=toScreen(Math.min(drag.x0,drag.x1),Math.min(drag.y0,drag.y1)), [bx,by]=toScreen(Math.max(drag.x0,drag.x1),Math.max(drag.y0,drag.y1));
+    ctx.save(); ctx.fillStyle=acc; ctx.globalAlpha=.08; ctx.fillRect(ax,ay,bx-ax,by-ay); ctx.globalAlpha=.9; ctx.strokeStyle=acc; ctx.lineWidth=1.5; ctx.setLineDash([6,4]); ctx.strokeRect(ax,ay,bx-ax,by-ay); ctx.restore(); }
+  if(groupGhost) for(const c of groupGhost.cells){ const col=groupGhost.ok?CAT[catOf(c.id)].color:css("--warn"), [x,y]=toScreen(c.x,c.y);
+    ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle=col; ctx.fillRect(x,y,c.w*s,c.h*s); ctx.restore(); box(c.x,c.y,c.w,c.h,groupGhost.ok?shade(col,-.4):col,null,true); }
   // flame marker on overclocked modules
   if(s>=6) for(const p of ship.parts){ if(p.oc!==1) continue; const fr=fullRect(p), [x,y]=toScreen(fr.x+fr.w,fr.y), r=Math.max(4,Math.min(9,s*.22)), cx=x-r-3, cy=y+r+4;
     ctx.save(); ctx.fillStyle="#FF5A1F"; ctx.strokeStyle="#FFFFFF"; ctx.lineWidth=1.5; ctx.beginPath();
@@ -1344,6 +1381,7 @@ document.getElementById("mExt").onclick=()=>setMode("exterior");
 document.getElementById("fit").onclick=fit;
 
 // ---------- editor ----------
+let multi=new Set(), groupClip=null, groupGhost=null, pinch=null; const pointers=new Map(); // multi-select, copied group, touch pinch
 let clip=null, pasteOC, aimFrom=-1; // copy/paste buffer; aimFrom = part being aimed
 let tool=null, toolRot=0, sel=-1, ghost=null, drag=null, undoS=[], redoS=[], selDoor=-1, doorGhost=null, dirty=false;
 const mirror={on:false,axis:"lr",c2:0};
@@ -1382,7 +1420,7 @@ function blankShip(){
   ship=buildModel({Name:$("shipName").value||"New ship",Author:"",ShipRulesID:"cosmoteer.terran",Version:3,FlightDirection:+$("front").value,Parts:[],Doors:"Unset",RoofBaseColor:[1,1,1,.5]});
   ship.tree=null; ship.orig=new Set(); $("empty").style.display="none"; renderStats(); cam.x=0; cam.y=0; cam.s=24; draw();
 }
-function rebuild(){ const {d,tree,orig}=ship; ship=buildModel(d); ship.tree=tree; ship.orig=orig; renderStats(); draw(); editUI(); }
+function rebuild(){ multi.clear(); const {d,tree,orig}=ship; ship=buildModel(d); ship.tree=tree; ship.orig=orig; renderStats(); draw(); editUI(); }
 function lockSil(){ if(sil.on){ sil.on=false; $("sil").hidden=true; editMsg("Silhouette locked in. Your edits are kept from here on."); } }
 const snap=()=>({P:ship.d.Parts,D:ship.d.Doors});
 function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length>200) undoS.shift(); redoS=[]; if(next) ship.d.Parts=next; if(doors) ship.d.Doors=doors; lockSil(); rebuild(); if(msg!==undefined) editMsg(msg); }
@@ -1394,12 +1432,14 @@ function hint(){
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } const sr=$("smRow"); if(sr){ sr.hidden=!(op&&op.id==="cosmoteer.shield_gen_small"&&op.oc===1); if(op) $("smSel").value=String(op.sm===1?1:0); } }
   const h=$("hint"); if(!ship&&!tool){ h.innerHTML=""; return; }
   const mir=mirror.on?" Mirror is on.":"";
-  if(aimFrom>=0) h.innerHTML=(ship&&ship.parts[aimFrom]&&IS_PRISM(ship.parts[aimFrom].id))?`Aiming: click a prism to chain to it, or any spot to aim there. <kbd>Esc</kbd> or right-click to cancel.`:`Aiming: click the prism to feed. <kbd>Esc</kbd> or right-click to cancel.`;
+  if(tool==="__group") h.innerHTML=`Placing ${groupClip?groupClip.length:0} copied parts: click to place, <kbd>Esc</kbd> or right-click to stop.`;
+  else if(multi.size>1) h.innerHTML=`<b>${multi.size} parts</b> selected: drag one to move them all, <kbd>Del</kbd> remove, <kbd>Ctrl</kbd>+<kbd>C</kbd> copy, <kbd>Esc</kbd> clear.`;
+  else if(aimFrom>=0) h.innerHTML=(ship&&ship.parts[aimFrom]&&IS_PRISM(ship.parts[aimFrom].id))?`Aiming: click a prism to chain to it, or any spot to aim there. <kbd>Esc</kbd> or right-click to cancel.`:`Aiming: click the prism to feed. <kbd>Esc</kbd> or right-click to cancel.`;
   else if(tool==="door") h.innerHTML=`Placing <b>doors</b>: click a wall between two rooms to add a door, or click a door to remove it. <kbd>Esc</kbd> or right-click to stop.${mir}`;
   else if(tool) h.innerHTML=`Placing <b>${esc(pretty(tool))}</b>: click to place, <kbd>R</kbd> rotate, <kbd>Esc</kbd> or right-click to stop.${mir}`;
   else if(sel>=0 && ship.parts[sel]) h.innerHTML=`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move, <kbd>R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
   else if(selDoor>=0) h.innerHTML=`Door selected: <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
-  else h.innerHTML=`Pick a module to place it, or click a part to select it. Drag empty space to pan. Press <kbd>?</kbd> for shortcuts.${mir}`;
+  else h.innerHTML=`Pick a module to place it, or click a part to select it. <kbd>Shift</kbd>+drag to select several. Drag empty space to pan. Press <kbd>?</kbd> for shortcuts.${mir}`;
 }
 // ghost for placing or moving, with its mirror twin
 function makeGhost(id,x,y,rot,ignore,noTwin,flip){
@@ -1445,7 +1485,7 @@ function selectTool(id){
   if(tool===id){ cancelTool(); return; }
   tool=id; toolRot=0; sel=-1; selDoor=-1; ghost=null; doorGhost=null; pasteOC=undefined; if(!ship) blankShip(); renderPalette(); hint(); editMsg("");
 }
-function cancelTool(quiet){ tool=null; ghost=null; doorGhost=null; renderPalette(); if(!quiet){ hint(); draw(); } }
+function cancelTool(quiet){ tool=null; ghost=null; doorGhost=null; groupGhost=null; renderPalette(); if(!quiet){ hint(); draw(); } }
 function removeSel(){
   if(sel<0) return; const tw=twinOf(sel), hull=isHull(ship.d.Parts[sel].ID);
   const msg=(tw>=0&&tw!==sel?"Removed it and its mirror twin":"Removed it")+(hull?".":"; the space is now corridor.");
@@ -1524,7 +1564,7 @@ $("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName")
 // on-screen rotate / delete (same as R and Delete)
 $("rotBtn").onclick=()=>{ if(tool==="door") return; if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
   else if(sel>=0) rotateSel(); else editMsg("Select a part or pick a module first, then rotate.",true); };
-$("delBtn").onclick=()=>{ if(selDoor>=0) removeDoorSel(); else if(sel>=0) removeSel(); else editMsg("Click a part or door first, then delete.",true); };
+$("delBtn").onclick=()=>{ if(multi.size>1) removeGroup(); else if(selDoor>=0) removeDoorSel(); else if(sel>=0) removeSel(); else editMsg("Click a part or door first, then delete.",true); };
 // About dialog
 const about=$("about"); $("aboutBtn").onclick=()=>about.showModal(); $("aboutLink").onclick=e=>{ e.preventDefault(); about.showModal(); }; $("aboutClose").onclick=()=>about.close();
 for(const h of document.querySelectorAll(".wid header")) h.addEventListener("click",e=>{ if(e.target.closest("#recentDock")) return; h.closest(".wid").classList.toggle("collapsed"); stage.classList.toggle("recent-collapsed",$("wRecent").classList.contains("collapsed")); });
@@ -1543,16 +1583,24 @@ addEventListener("beforeunload",e=>{ if(dirty){ e.preventDefault(); e.returnValu
 // pointer: place, select, move, pan, hover
 stage.addEventListener("contextmenu",e=>e.preventDefault());
 stage.addEventListener("pointerdown",e=>{
-  stage.setPointerCapture(e.pointerId); tip.style.display="none";
+  try{ stage.setPointerCapture(e.pointerId); }catch{} tip.style.display="none";
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size>=2){ // two fingers: pinch to zoom / pan, cancel whatever the first finger started
+    const [a,b]=[...pointers.values()]; pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,s:cam.s,cx:cam.x,cy:cam.y};
+    drag=null; ghost=null; groupGhost=null; stage.classList.remove("drag"); draw(); return; }
   if(aimFrom>=0 && ship){ if(e.button===2){ aimFrom=-1; hint(); draw(); return; }
     const [gx,gy]=gridAt(e), q=ship.cell.get(Math.floor(gx),Math.floor(gy));
     if(e.button===0){ if(q&&IS_PRISM(q.id)&&q.i!==aimFrom) setAim(aimFrom,q.i);
       else if(IS_PRISM(ship.parts[aimFrom].id)) setAimPoint(aimFrom,[gx,gy]);
       else editMsg("Ion emitters can only aim at a prism. Click a prism, or press Esc to cancel.",true); } return; }
   if(e.button===2 && tool){ cancelTool(); return; }
+  if(e.button===0 && tool==="__group"){ const [gx,gy]=gridAt(e); groupGhost=makeGroupGhost(groupClip,Math.floor(gx),Math.floor(gy),new Set()); placeGroup(); return; }
   if(e.button===0 && tool==="door"){ doorClick(e); return; }
   if(e.button===0 && tool){ toolGhost(e); placeGhost(); toolGhost(e); draw(); return; }
   if(e.button===0 && ship){ const [gx,gy]=gridAt(e), p=ship.cell.get(Math.floor(gx),Math.floor(gy));
+    if(e.shiftKey){ drag={kind:"box",x0:gx,y0:gy,x1:gx,y1:gy,sx:e.clientX,sy:e.clientY,moved:false,hit:p?p.i:-1}; return; }
+    if(p && multi.size>1 && multi.has(p.i)){ drag={kind:"gmove",ox:Math.floor(gx),oy:Math.floor(gy),sx:e.clientX,sy:e.clientY,moved:false}; return; }
+    if(multi.size){ multi.clear(); }
     const dh=doorHit(gx,gy); if(dh>=0){ selDoor=dh; sel=-1; hint(); draw(); return; } selDoor=-1;
     if(p){ sel=p.i; drag={kind:"move",i:p.i,ox:Math.floor(gx)-p.x,oy:Math.floor(gy)-p.y,sx:e.clientX,sy:e.clientY,moved:false}; hint(); draw(); return; }
     if(sel>=0){ sel=-1; hint(); } }
@@ -1560,6 +1608,14 @@ stage.addEventListener("pointerdown",e=>{
 });
 stage.addEventListener("pointermove",e=>{
   const r=stage.getBoundingClientRect();
+  if(pointers.has(e.pointerId)) pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch && pointers.size>=2){ const [a,b]=[...pointers.values()], d=Math.hypot(a.x-b.x,a.y-b.y)||1, mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const ns=Math.max(0.1,Math.min(120,pinch.s*d/pinch.d)), gx=(pinch.mx-r.left-r.width/2)/pinch.s+pinch.cx, gy=(pinch.my-r.top-r.height/2)/pinch.s+pinch.cy;
+    cam.s=ns; cam.x=gx-(mx-r.left-r.width/2)/ns; cam.y=gy-(my-r.top-r.height/2)/ns; draw(); return; }
+  if(drag&&drag.kind==="box"){ const [gx,gy]=gridAt(e); drag.x1=gx; drag.y1=gy; if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>4) drag.moved=true; draw(); return; }
+  if(drag&&drag.kind==="gmove"){ if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4) return; drag.moved=true;
+    const [gx,gy]=gridAt(e); groupGhost=makeGroupGhost(groupItems([...multi]),Math.floor(gx)-drag.ox,Math.floor(gy)-drag.oy,new Set(multi)); draw(); return; }
+  if(tool==="__group"){ const [gx,gy]=gridAt(e); groupGhost=makeGroupGhost(groupClip,Math.floor(gx),Math.floor(gy),new Set()); draw(); return; }
   if(drag&&drag.kind==="pan"){ cam.x=drag.cx-(e.clientX-drag.x)/cam.s; cam.y=drag.cy-(e.clientY-drag.y)/cam.s; draw(); return; }
   if(drag&&drag.kind==="move"){
     if(!drag.moved && Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4) return; drag.moved=true;
@@ -1583,7 +1639,17 @@ stage.addEventListener("pointermove",e=>{
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
   tip.style.left=tx+"px"; tip.style.top=ty+"px";
 });
-stage.addEventListener("pointerup",()=>{
+for(const ev of ["pointerup","pointercancel"]) stage.addEventListener(ev,e=>{ pointers.delete(e.pointerId); if(pinch && pointers.size<2){ pinch=null; drag=null; } });
+stage.addEventListener("pointerup",e=>{
+  if(drag&&drag.kind==="box"){
+    if(!drag.moved){ if(drag.hit>=0){ if(sel>=0&&sel!==drag.hit) multi.add(sel); if(multi.has(drag.hit)) multi.delete(drag.hit); else multi.add(drag.hit); sel=-1; } }
+    else { const x0=Math.min(drag.x0,drag.x1), x1=Math.max(drag.x0,drag.x1), y0=Math.min(drag.y0,drag.y1), y1=Math.max(drag.y0,drag.y1);
+      for(const q of ship.parts) if(q.x<x1&&q.x+q.w>x0&&q.y<y1&&q.y+q.h>y0) multi.add(q.i); if(sel>=0) multi.add(sel); sel=-1; }
+    if(multi.size===1){ sel=[...multi][0]; multi.clear(); }
+    drag=null; hint(); draw(); return; }
+  if(drag&&drag.kind==="gmove"){
+    if(drag.moved&&groupGhost){ if(!groupGhost.ok) editMsg("Can’t move the group there: it would land on another module or leave the build area.",true); else if(groupGhost.dx||groupGhost.dy) moveGroup(groupGhost.dx,groupGhost.dy); }
+    groupGhost=null; drag=null; draw(); return; }
   if(drag&&drag.kind==="move"&&drag.moved&&ghost){ const p=ship.parts[drag.i];
     if(!ghost.ok) editMsg(ghostWhy(ghost,"move it"),true);
     else if(ghost.x!==p.x||ghost.y!==p.y) movePart(drag.i,ghost,twinOf(drag.i));
@@ -1595,18 +1661,23 @@ document.addEventListener("keydown",e=>{
   const ae=document.activeElement, typing=!!ae && (/^(SELECT|TEXTAREA)$/.test(ae.tagName) || (ae.tagName==="INPUT" && !/^(checkbox|radio|range|button)$/.test(ae.type)));
   if(e.key==="Escape"){ if(typing) document.activeElement.blur();
     if(aimFrom>=0){ aimFrom=-1; hint(); draw(); return; }
+    if(multi.size && !tool){ multi.clear(); hint(); draw(); return; }
     if(drag&&drag.kind==="move"){ drag=null; ghost=null; draw(); return; }
     if(tool){ cancelTool(); return; } if(sel>=0||selDoor>=0){ sel=-1; selDoor=-1; hint(); draw(); } return; }
   if(typing) return;
   const mod=e.ctrlKey||e.metaKey;
+  if(mod && e.key.toLowerCase()==="a" && ship){ e.preventDefault(); cancelTool(true); multi=new Set(ship.parts.map(q=>q.i)); sel=-1; hint(); draw(); return; }
+  if(mod && e.key.toLowerCase()==="c" && multi.size>1){ copyGroup(); return; }
+  if(mod && e.key.toLowerCase()==="v" && groupClip && !clip){ e.preventDefault(); startGroupPaste(); return; }
   if(e.key==="?"){ $("keys").showModal(); return; }
-  if(mod && e.key.toLowerCase()==="c" && sel>=0 && ship.parts[sel]){ const p=ship.parts[sel]; clip={id:p.id,rot:p.rot,oc:p.oc}; editMsg(`Copied ${pretty(p.id)}. Press Ctrl+V to place copies.`); return; }
+  if(mod && e.key.toLowerCase()==="c" && sel>=0 && ship.parts[sel]){ const p=ship.parts[sel]; groupClip=null; clip={id:p.id,rot:p.rot,oc:p.oc}; editMsg(`Copied ${pretty(p.id)}. Press Ctrl+V to place copies.`); return; }
   if(mod && e.key.toLowerCase()==="v" && clip){ e.preventDefault(); selectTool(clip.id); toolRot=clip.rot; pasteOC=clip.oc; editMsg(`Placing copies of ${pretty(clip.id)}.`); return; }
   if(mod && e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
   if(mod && e.key.toLowerCase()==="y"){ e.preventDefault(); redo(); return; }
   if((e.key==="o"||e.key==="O") && sel>=0 && !tool){ const p=ship.parts[sel]; if(p&&OC_PARTS.has(p.id)) setOC(p.oc===1?0:1); return; }
-  if(e.key==="r"||e.key==="R"){ if(tool==="door") return; if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
+  if(e.key==="r"||e.key==="R"){ if(tool==="door"||tool==="__group") return; if(multi.size>1){ editMsg("Rotating a whole group isn’t supported yet; rotate parts one at a time.",true); return; } if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
     else if(sel>=0) rotateSel(); return; }
+  if((e.key==="Delete"||e.key==="Backspace") && multi.size>1){ e.preventDefault(); removeGroup(); return; }
   if((e.key==="Delete"||e.key==="Backspace") && selDoor>=0){ e.preventDefault(); removeDoorSel(); return; }
   if((e.key==="Delete"||e.key==="Backspace") && sel>=0){ e.preventDefault(); removeSel(); }
 });
