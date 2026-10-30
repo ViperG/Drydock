@@ -705,6 +705,8 @@ function renderCheck(){
     if(bad.length) issues.push(`${bad.length} part${bad.length>1?"s have":" has"} a blocked exhaust, firing lane or clearance zone (${esc([...new Set(bad)].slice(0,3).join(", "))}${new Set(bad).size>3?"…":""}).`); }
   { const lg=P.filter(p=>p.id==="cosmoteer.shield_gen_large").map(p=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm), o=shieldOpenRuns(p.i,a); return [o.openArc,a.arc]; }).filter(([o,f])=>o<f*0.98);
     if(lg.length) issues.push(`${lg.length} large shield${lg.length>1?"s are":" is"} partly blocked by other parts (${lg.slice(0,3).map(([o,f])=>Math.round(o*180/Math.PI)+"° of "+Math.round(f*180/Math.PI)+"°").join(", ")}).`); }
+  { const H=shipHeat(); if(H.made>H.cool) issues.push(H.rads?`Overclocked parts make about ${fmt(H.made)} heat/s at full load, but radiators remove about ${fmt(H.cool)}/s. The ship will overheat in long fights.`
+      :`${H.oc} overclocked part${H.oc>1?"s make":" makes"} about ${fmt(H.made)} heat/s, and the ship has no radiators. It will overheat.`); }
   { const n=ship.doors.filter(d=>!doorOk(d)).length; if(n) issues.push(`${n} door${n>1?"s are":" is"} on a wall the game doesn’t allow; it may drop ${n>1?"them":"it"}.`); }
   if(!P.some(p=>CREW_CAP[p.id])) issues.push("No crew quarters: the ship has nowhere to house crew.");
   const tips=[];
@@ -834,6 +836,21 @@ function ionNetwork(){
   const counts=new Map([...inputs].map(([k,a])=>[k,a.length]));
   return ship._ion={out,counts,dps};
 }
+// Heat (Meltdown rules, Oct 2026): only overclocked parts make heat. Values are each part's OVERCLOCK heat per second at full load
+// (per-shot weapons divided by their fire interval). Radiators remove 1,100/s each (half if their exhaust tile is blocked).
+// Lasers, chainguns, railguns, factories and power storage aren't counted yet; heat-pipe connections aren't checked.
+const HEAT_OC={"cosmoteer.reactor_small":900,"cosmoteer.reactor_med":1600,"cosmoteer.reactor_large":2750,
+  "cosmoteer.thruster_small":200,"cosmoteer.thruster_med":340,"cosmoteer.thruster_large":675,"cosmoteer.thruster_huge":1100,"cosmoteer.thruster_boost":675,
+  "cosmoteer.thruster_rocket_nozzle":1100,"cosmoteer.thruster_rocket_extender":250,"cosmoteer.ion_beam_emitter":1000,"cosmoteer.tractor_beam_emitter":2200,
+  "cosmoteer.mining_laser_small":450,"cosmoteer.point_defense":200,"cosmoteer.sensor_array":300,"cosmoteer.shield_gen_small":40,"cosmoteer.shield_gen_large":80,
+  "cosmoteer.cannon_med":370/.9,"cosmoteer.cannon_large":1000/1.35,"cosmoteer.disruptor":300/.5,"cosmoteer.flak_cannon_large":200/.25,"cosmoteer.cannon_deck":120};
+const RADIATOR_COOLING=1100;
+function shipHeat(){
+  let made=0, cool=0, oc=0, rads=0;
+  for(const p of ship.parts){ if(p.oc===1&&HEAT_OC[p.id]){ made+=HEAT_OC[p.id]; oc++; }
+    if(p.id==="cosmoteer.radiator"){ rads++; cool+=zoneProblem({id:p.id,x:p.x,y:p.y,w:p.w,h:p.h,rot:p.rot,hits:new Set()},[p.i])?RADIATOR_COOLING/2:RADIATOR_COOLING; } }
+  return {made,cool,oc,rads};
+}
 const shipDPS=()=>ship.parts.reduce((s,p)=>s+(p.id==="cosmoteer.ion_beam_emitter"?0:(WEAPON_DPS[p.id]||0)),0)+ionNetwork().dps;
 function renderInfoWidget(cost,noCost,mass,beds,need){
   const el=$("wInfoBody"); if(!el) return; if(!ship||!ship.parts.length){ el.innerHTML='<dt>No ship yet</dt><dd></dd>'; return; }
@@ -842,7 +859,8 @@ function renderInfoWidget(cost,noCost,mass,beds,need){
     `<dt>Crew needed</dt><dd class="${need>beds?"warn":""}">${fmt(need)} / ${fmt(beds)} beds</dd>`+
     `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"no forward thrust"}</dd>`+
     `<dt>DPS</dt><dd>${shipDPS()?"≈ "+fmt(shipDPS()):"—"}</dd>`+
-    `<div class="sub">Speed counts forward thrust, engine rooms and overclocked thrusters against mass and the game’s drag. DPS counts lasers, cannons, disruptors and ion beams, with prism networks combined (not overclocked).</div>`;
+    (()=>{ const H=shipHeat(); return `<dt title="Heat per second: made by overclocked parts at full load / removed by radiators">Heat /s</dt><dd class="${H.made>H.cool?"warn":""}">${fmt(H.made)} / ${fmt(H.cool)}</dd>`; })()+
+    `<div class="sub">Speed counts forward thrust, engine rooms and overclocked thrusters against mass and the game’s drag. DPS counts lasers, cannons, disruptors and ion beams, with prism networks combined (not overclocked). Heat /s is made by overclocked parts at full load / removed by radiators.</div>`;
 }
 let recent=[];
 function noteRecent(id){ if(!id||id==="door") return; recent=[id,...recent.filter(x=>x!==id)].slice(0,14); renderRecent(); }
@@ -872,7 +890,7 @@ let UID=0; const uidOf=p=>p._u||(p._u=++UID);
 const IS_PRISM=id=>id==="cosmoteer.ion_beam_prism", CAN_AIM=id=>IS_PRISM(id)||id==="cosmoteer.ion_beam_emitter";
 const AIM_KEYS=["Turret","IonBeamChainToggle","Weapon"];
 const partCenter=q=>[q.x+q.w/2,q.y+q.h/2];
-function prismOnStructure(h,ignore){ for(let i=0;i<h.w;i++) for(let j=0;j<h.h;j++){ const q=ship.cell.get(h.x+i,h.y+j); if(!(q&&(q.id==="cosmoteer.structure"||ignore.includes(q.i)))) return false; } return true; }
+function prismOnStructure(h,ignore){ for(let i=0;i<h.w;i++) for(let j=0;j<h.h;j++){ const q=ship.cell.get(h.x+i,h.y+j); if(!(q&&(q.id==="cosmoteer.structure"||ignore.includes(q.i)))) return false; } return true; } // every tile must be plain structure (as on every known prism ship)
 function aimTarget(i){ const src=ship.d.Parts[i]; if(!src||src.AimTo===undefined) return null;
   if(!ship._U){ ship._U=new Map(); ship.d.Parts.forEach((q,k)=>{ if(q._u) ship._U.set(q._u,k); }); }
   const k=ship._U.get(src.AimTo); return k===undefined||!IS_PRISM(ship.parts[k].id)?null:ship.parts[k]; }
@@ -1377,7 +1395,7 @@ function makeGhost(id,x,y,rot,ignore,noTwin,flip){
   g.ok=!clash&&inArea(x,y,w,h); g.hits=hitsOf(x,y,w,h,ignore,id);
   if(T){ T.ok=!clash&&inArea(T.x,T.y,T.w,T.h); T.hits=hitsOf(T.x,T.y,T.w,T.h,ignore,id); }
   for(const hh of [g,g.twin].filter(Boolean)){ const why=zoneProblem(hh,ignore); if(why){ hh.ok=false; hh.why=why; } }
-  if(IS_PRISM(id)) for(const hh of [g,g.twin].filter(Boolean)) if(!prismOnStructure(hh,ignore)){ hh.ok=false; hh.why="prisms must sit entirely on plain structure"; }
+  if(IS_PRISM(id)) for(const hh of [g,g.twin].filter(Boolean)) if(!prismOnStructure(hh,ignore)){ hh.ok=false; hh.why="prisms must sit on plain structure on all 4 tiles"; }
   if(g.twin && !g.twin.ok) g.ok=false; if(g.twin && !g.ok) g.twin.ok=false;
   return g;
 }
