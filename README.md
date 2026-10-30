@@ -29,6 +29,7 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 - Shield arcs: see each shield's coverage and range, including overclocked Expanded and Hardened modes
 - Weapon arcs: see which directions each turret can aim, short or out to its full range
 - Set a module's overclock on or off, and a small shield's overclock mode (Expanded or Hardened)
+- Ion prisms: placed only on structure (deleting one leaves structure), drawn pointing at their target, and aimable at another prism (to build chains) or at any spot on the ship; ion emitters can be aimed at a prism too
 - Set the ship's front, including the four diagonal directions
 - Undo and redo
 - Build-area border for vanilla (120 × 120), Larger Ships (200 × 200) or Huge Ships (1000 × 1000)
@@ -86,7 +87,7 @@ On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the 
 - The thermal canister missile factory's price (18,000) is worked out from its materials; other factories cost a few percent more in game, so it may be slightly low.
 - Crew needed counts each module's required crew, not the game's higher "recommended" figure. Crew roles and priorities on loaded ships are kept but can't be edited.
 - Max speed is an estimate from forward thrust (including engine rooms and overclocked thrusters), mass and the game's drag.
-- DPS counts lasers, cannons, disruptors and ion beams without overclock; railguns, missiles, chainguns, flak and the lance aren't counted yet.
+- DPS counts lasers, cannons, disruptors and ion beams without overclock, combining prism networks with the game's per-beam falloff (100%, 75%, 56%…, so 2:1 is most efficient); railguns, missiles, chainguns, flak and the lance aren't counted yet.
 - The thermal safety setting is kept as saved but can't be changed yet.
 - Very large hulls (hundreds of thousands of parts) can be slow.
 
