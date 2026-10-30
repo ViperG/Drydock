@@ -97,6 +97,44 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 #palQ{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 #hint{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px;pointer-events:none}
 #hint:empty{display:none}
+.menu{position:relative}
+.menuList{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);display:flex;flex-direction:column;padding:4px;z-index:30}
+.menuList button{border:0;border-radius:5px;text-align:left;padding:8px 10px;font-size:14px}
+.menuList button:hover,.menuList button:focus-visible{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+dialog.io{max-width:760px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:20px 24px 18px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+dialog.io::backdrop{background:rgba(10,20,30,.45)}
+dialog.io h2{font-size:20px;margin:0 0 6px}
+dialog.io p{font-size:14px;color:var(--muted);margin:0 0 10px}
+dialog.io .close{float:right}
+dialog.io textarea{width:100%;height:min(55vh,520px);font:12.5px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:10px;resize:vertical}
+dialog.io input[type=url]{width:100%;font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+dialog.io .actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+dialog.io .err{color:var(--warn);font-size:13px;margin-right:auto}
+#dock{position:absolute;top:12px;right:12px;bottom:12px;width:212px;display:flex;flex-direction:column;gap:10px;pointer-events:none;z-index:3}
+.wid{pointer-events:auto;background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);display:flex;flex-direction:column;min-height:0}
+.wid header{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 10px;font:600 13.5px "Chakra Petch",sans-serif;cursor:pointer;user-select:none}
+.wid header b{flex:1;font-weight:600}
+.wbtn{border:0;background:transparent;padding:2px 6px;font-size:13px;line-height:1;color:var(--muted);border-radius:4px}
+.wbtn:hover{color:var(--ink);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.wid.collapsed .wbody{display:none!important}
+.wid.collapsed .wcol{transform:rotate(-90deg)}
+#wInfo{flex:none}
+#wInfo .wbody{padding:0 10px 9px;margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
+#wInfo .wbody dt{color:var(--muted)} #wInfo .wbody dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+#wInfo .wbody dd.warn{color:var(--warn)} #wInfo .wbody .sub{grid-column:1/-1;font-size:11.5px;color:var(--muted);margin-top:2px}
+#wRecent{flex:0 1 auto;max-height:100%}
+#wRecent.collapsed{flex:none}
+#recentList{overflow:auto;padding:0 6px 6px;display:flex;flex-direction:column;gap:2px;min-height:0}
+#recentList button{display:flex;align-items:center;gap:8px;width:100%;border:1px solid transparent;border-radius:6px;padding:3px 6px;font-size:13px;text-align:left;background:transparent;color:var(--ink)}
+#recentList button:hover{border-color:var(--line);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+#recentList button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+#recentList img{width:34px;height:34px;flex:none}
+#recentList .empty{font-size:12.5px;color:var(--muted);padding:4px 6px 8px}
+#wRecent.bottom{position:absolute;left:12px;right:236px;bottom:12px;max-height:none;z-index:3}
+#wRecent.bottom #recentList{flex-direction:row;overflow-x:auto;overflow-y:hidden}
+#wRecent.bottom #recentList button{flex-direction:column;width:auto;min-width:76px;gap:2px;font-size:11.5px;text-align:center}
+#stage.recent-bottom #hint{bottom:104px}
+#stage.recent-bottom.recent-collapsed #hint{bottom:56px}
 dialog#about{max-width:600px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:20px 24px 18px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
 dialog#about::backdrop{background:rgba(10,20,30,.45)}
 dialog#about h2{font-size:20px;margin:0 0 6px}
@@ -136,6 +174,11 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <button id="fit">Fit to view</button>
     <label class="filebtn">New from image… <input id="silFile" type="file" accept="image/*"></label>
     <label class="filebtn primary">Open ship… <input id="file" type="file" accept=".png,image/png"></label>
+    <div class="menu"><button id="importBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="importMenu">Import ▾</button>
+      <div class="menuList" id="importMenu" role="menu" hidden>
+        <button role="menuitem" data-imp="png">Ship .png file…</button><button role="menuitem" data-imp="url">From URL…</button>
+        <button role="menuitem" data-imp="json">JSON file…</button><button role="menuitem" data-imp="paste">Paste JSON…</button>
+      </div><input id="jsonFile" type="file" accept=".json,application/json" hidden></div>
   </div>
 </header>
 <main>
@@ -144,6 +187,10 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <div id="empty"><div><strong>No ship loaded</strong>Drop a .ship.png here or use “Open ship…”.<br>To start from scratch, pick a module from the Edit panel.<br>To build a hull from a picture, use “New from image…”.<br>Scroll to zoom, drag to pan, hover a part for details.</div></div>
     <div id="tip"></div>
     <div id="hint"></div>
+    <div id="dock">
+      <section class="wid" id="wInfo"><header data-col="wInfo"><b>Ship info</b><button class="wbtn wcol" aria-label="Collapse ship info">▾</button></header><dl class="wbody" id="wInfoBody"></dl></section>
+      <section class="wid" id="wRecent"><header data-col="wRecent"><b>Recent blocks</b><button class="wbtn" id="recentDock" title="Dock along the bottom" aria-label="Dock along the bottom">⤓</button><button class="wbtn wcol" aria-label="Collapse recent blocks">▾</button></header><div class="wbody" id="recentList"></div></section>
+    </div>
   </div>
   <aside id="side">
     <section class="sil" id="sil" hidden>
@@ -177,7 +224,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
       <div class="ctl" id="smRow" hidden><label for="smSel">Shield mode</label><select id="smSel"><option value="0">Expanded (wider, longer)</option><option value="1">Hardened (narrower, stronger)</option></select></div>
       <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
       <div class="pal" id="pal" role="listbox" aria-label="Modules"></div>
-      <div class="actions"><button id="rotBtn" title="Rotate (R)">Rotate</button><button id="delBtn" title="Delete (Del)">Delete</button><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button><button class="primary" id="saveShip" disabled>Save as .ship.png</button></div>
+      <div class="actions"><button id="rotBtn" title="Rotate (R)">Rotate</button><button id="delBtn" title="Delete (Del)">Delete</button><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button><button class="primary" id="saveShip" disabled>Save as .ship.png</button><button id="saveJson" disabled>Save .json</button><button id="copyJson" disabled>Copy JSON</button></div>
       <div class="msg" id="editMsg"></div>
     </section>
     <h2 id="sName">—</h2>
@@ -190,6 +237,20 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     <p class="footnote">Drydock never changes your original file; saving always makes a new copy. Keep a backup before replacing ships in your Saved Ships folder. See <a href="#" id="aboutLink">Notes &amp; credits</a> for known limits.</p>
   </aside>
 </main>
+<dialog id="jsonDlg" class="io" aria-labelledby="jsonTitle">
+  <button class="close" id="jsonClose">Close</button>
+  <h2 id="jsonTitle">Paste JSON</h2>
+  <p id="jsonHelp">Paste a ship’s JSON: from Drydock, or decoded-ship JSON from other Cosmoteer tools (a “Parts” list with ID, Location, Rotation).</p>
+  <textarea id="jsonText" spellcheck="false" aria-label="Ship JSON"></textarea>
+  <div class="actions"><span class="err" id="jsonErr"></span><button class="primary" id="jsonGo">Import</button></div>
+</dialog>
+<dialog id="urlDlg" class="io" aria-labelledby="urlTitle">
+  <button class="close" id="urlClose">Close</button>
+  <h2 id="urlTitle">Import from URL</h2>
+  <p>Link straight to a .ship.png or .json file. The site has to allow other pages to download from it; if it doesn’t, download the file and open it instead.</p>
+  <input id="urlIn" type="url" placeholder="https://…" aria-label="File URL">
+  <div class="actions"><span class="err" id="urlErr"></span><button class="primary" id="urlGo">Import</button></div>
+</dialog>
 <dialog id="keys" aria-labelledby="keysTitle">
   <button class="close" id="keysClose">Close</button>
   <h2 id="keysTitle">Keyboard shortcuts</h2>
@@ -213,8 +274,8 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
   <p>Everything runs in your browser. Ship files and images you open are never uploaded anywhere. Drydock never changes your original file; saving always makes a new copy, so keep a backup before replacing ships in your Saved Ships folder.</p>
   <h3>Known limits</h3>
   <ul>
-    <li>The structure heat pipe and thermal canister missile factory have no price yet, so ships using them show a minimum cost.</li>
-    <li>Crew required isn’t calculated. Roles and crew priorities on loaded ships are kept, but can’t be edited here.</li>
+    <li>The thermal canister missile factory’s price (18,000) is worked out from its materials; other factories cost a few percent more in game, so it may be slightly low.</li>
+    <li>Crew needed counts each module’s required crew; the game’s higher “recommended” figure (extra hands for ammo and power) isn’t included. Roles and crew priorities on loaded ships are kept, but can’t be edited here.</li>
     <li>Build-area edges and the 8 flight directions follow how saved ships behave; tell us if the game disagrees.</li>
     <li>Very large hulls (hundreds of thousands of parts) can be slow to edit and save.</li>
   </ul>
@@ -222,6 +283,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
   <ul>
     <li>Save-format research: GameDungeon’s cosmoteer_save_tools, as used in lunastrod’s cosmoteer-com and Helicophel’s cosmoteer-ship-to-wikitext.</li>
     <li>Part sizes, costs and outlines: the part table from Helicophel’s cosmoteer-ship-to-wikitext (MIT license, © franklin050187).</li>
+    <li>Speed model hints, engine-room thrust and some weapon DPS values: ContestMath’s cosmo-shipbuilder (MIT license).</li>
     <li>Heat-era part geometry: 0neye’s Voidwright vanilla part export (Apache License 2.0).</li>
     <li>No-build zones, shield and weapon arcs, and overclock data are derived from Cosmoteer’s own part rules files, via the Rojamahorse/CosmoteerUpdates mirror (October 2026).</li>
     <li>Cosmoteer is © Walternate Realities.</li>
@@ -232,7 +294,7 @@ const PARTS = {"cosmoteer.corridor":{"s":[1,1],"m":1,"c":0.1,"t":["crew_transpor
 // Heat parts (Meltdown update): sizes measured from real ships; costs unknown.
 Object.assign(PARTS, {
   "cosmoteer.heat_pipe_adaptive": {s:[1,1], c:0.3, t:["heat","pipe"]},
-  "cosmoteer.heat_pipe_adaptive_structure": {s:[1,1], t:["heat","pipe"]},
+  "cosmoteer.heat_pipe_adaptive_structure": {s:[1,1], c:0.3, t:["heat","pipe"]},
   "cosmoteer.heat_pipe_crossing": {s:[1,1], c:0.3, t:["heat","pipe"]},
   "cosmoteer.heat_exchanger": {s:[1,1], c:0.5, t:["heat"]},
   "cosmoteer.radiator": {s:[1,3], c:10, t:["heat"]},
@@ -240,7 +302,7 @@ Object.assign(PARTS, {
   "cosmoteer.thermal_amplification_pump": {s:[1,3], c:4.5, t:["heat"]},
   "cosmoteer.thermal_dilation_pump": {s:[2,2], c:5, t:["heat"]},
   "cosmoteer.resonance_beam_turret": {s:[4,4], c:16, t:["weapon"]},
-  "cosmoteer.factory_thermal": {s:[3,3], t:["factory"]},
+  "cosmoteer.factory_thermal": {s:[3,3], c:18, t:["factory"]}, // price from its materials (rules); other factories run a few % higher in game
 }); // heat-era sizes from Voidwright's export of the game's rules (Mar 2026)
 PARTS["cosmoteer.chaingun"].s=[3,4]; PARTS["cosmoteer.flak_cannon_large"].s=[3,5]; // saved footprint per the same export
 const ZONES = {"cosmoteer.shield_gen_small":{"W":2,"p":[0,1,2,2],"z":[["default",[0,0,2,1],1]]},"cosmoteer.radiator":{"W":1,"p":[0,1,1,3],"z":[["default",[0,0,1,1],1]]},"cosmoteer.resonance_beam_turret":{"W":4,"p":[0,0,4,4],"z":[["tall",[-2,-2,8,2],0],["tall",[-2,0,2,6],0],["tall",[4,0,2,6],0],["tall",[0,4,1,2],0],["tall",[3,4,1,2],0]],"t":["default","tall"]},"cosmoteer.cannon_deck":{"W":4.0,"p":[0,0,4.0,5.0],"z":[["tall",[-2,-2,8,2],0],["tall",[-2,0,2,5],0],["tall",[4,0,2,5],0]],"t":["default","tall"]},"cosmoteer.cannon_large":{"W":3.0,"p":[0.0,1.0,3.0,2.0],"z":[["default",[0,0,3,1],1],["default",[0,-2,3,2],0]]},"cosmoteer.cannon_med":{"W":2.0,"p":[0.0,1.0,2.0,1.0],"z":[["default",[0,0,2,1],1],["default",[0,-1,2,1],0]]},"cosmoteer.chaingun":{"W":3.0,"p":[0.0,2.0,3.0,4.0],"z":[["default",[0,0,3,2],1],["default",[0,-1,3,1],0]]},"cosmoteer.disruptor":{"W":1.0,"p":[0.0,1.0,1.0,3.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.flak_cannon_large":{"W":3.0,"p":[0.0,1.0,3.0,5.0],"z":[["default",[0,0,3,1],1],["default",[0,-2,3,2],0]]},"cosmoteer.hyperdrive_beacon":{"W":4.0,"p":[0,0,4.0,4.0],"z":[],"t":["default","tall"]},"cosmoteer.ion_beam_emitter":{"W":2.0,"p":[0.0,1.0,2.0,4.0],"z":[["default",[0,0,2,1],1]]},"cosmoteer.laser_blaster_large":{"W":2.0,"p":[0.0,2.0,2.0,3.0],"z":[["default",[0,0,2,2],1],["default",[0,-2,2,2],0]]},"cosmoteer.laser_blaster_small":{"W":1.0,"p":[0.0,1.0,1.0,2.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.mining_laser_small":{"W":2.0,"p":[0,0,2.0,3.0],"z":[],"t":["default","tall"]},"cosmoteer.missile_launcher":{"W":2.0,"p":[0.0,1.0,2.0,3.0],"z":[["default",[0,0,2,1],1],["default",[0,-2,2,2],0]]},"cosmoteer.point_defense":{"W":1.0,"p":[0.0,1.0,1.0,1.0],"z":[["default",[0,0,1,1],1],["default",[0,-1,1,1],0]]},"cosmoteer.railgun_launcher":{"W":2.0,"p":[0.0,1.0,2.0,3.0],"z":[["default",[0,0,2,1],1],["default",[0,-2,2,2],0]]},"cosmoteer.sensor_array":{"W":3.0,"p":[0,0,3.0,3.0],"z":[],"t":["default","tall"]},"cosmoteer.thruster_boost":{"W":2.0,"p":[0.0,0.0,2.0,3.0],"z":[["default",[0,3,2,2],1],["default",[0,5,2,18],0]]},"cosmoteer.thruster_huge":{"W":3.0,"p":[0.0,0.0,3.0,3.0],"z":[["default",[0,3,3,1],1],["default",[0,4,3,10],0]]},"cosmoteer.thruster_large":{"W":2.0,"p":[0.0,0.0,2.0,2.0],"z":[["default",[0,2,2,1],1],["default",[0,3,2,7],0]]},"cosmoteer.thruster_med":{"W":1.0,"p":[0.0,0.0,1.0,2.0],"z":[["default",[0,2,1,1],1],["default",[0,3,1,5],0]]},"cosmoteer.thruster_rocket_nozzle":{"W":3.0,"p":[0.0,0.0,3.0,4.0],"z":[["default",[0,4,3,1],1],["default",[0,5,3,1],0],["default",[-1,6,5,200],0]]},"cosmoteer.thruster_small":{"W":1.0,"p":[0.0,0.0,1.0,1.0],"z":[["default",[0,1,1,1],1],["default",[0,2,1,3],0]]},"cosmoteer.thruster_small_2way":{"W":2.0,"p":[0.0,0.0,1.0,1.0],"z":[["default",[0,1,2,1],1],["default",[1,0,1,1],1],["default",[0,2,1,3],0],["default",[2,0,3,1],0]]},"cosmoteer.thruster_small_3way":{"W":3.0,"p":[1.0,0.0,1.0,1.0],"z":[["default",[0,1,3,1],1],["default",[0,0,1,1],1],["default",[2,0,1,1],1],["default",[1,2,1,3],0],["default",[3,0,3,1],0],["default",[-3,0,3,1],0]]},"cosmoteer.tractor_beam_emitter":{"W":5.0,"p":[0,0,5.0,5.0],"z":[],"t":["default","tall"]}}; // no-build zones from the game's rules files (June 2024): [tag, [x,y,w,h] in the part's unrotated frame, isOverhang]
@@ -725,6 +787,60 @@ function drawShieldArc(A,k){
     ctx.globalAlpha=Math.min(1,.75*k); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.18); ctx.lineCap="round"; ctx.beginPath(); ctx.arc(cx,cy,R,b0,b1); ctx.stroke(); }
   ctx.restore();
 }
+// ---- rules data for ship info (Oct 2026 rules): crew required per module, thruster force, masses for parts the table lacks ----
+const RULES_STATS={"crew":{"cosmoteer.disruptor":1,"cosmoteer.cannon_med":1,"cosmoteer.hyperdrive_beacon":6,"cosmoteer.laser_blaster_large":2,"cosmoteer.cannon_large":2,"cosmoteer.ion_beam_emitter":2,"cosmoteer.laser_blaster_small":1,"cosmoteer.control_room_small":1,"cosmoteer.resonance_beam_turret":4,"cosmoteer.control_room_large":7,"cosmoteer.missile_launcher":2,"cosmoteer.tractor_beam_emitter":4,"cosmoteer.mining_laser_small":1,"cosmoteer.thruster_rocket_nozzle":2,"cosmoteer.sensor_array":4,"cosmoteer.flak_cannon_large":3,"cosmoteer.railgun_loader":2,"cosmoteer.cannon_deck":4,"cosmoteer.chaingun":3,"cosmoteer.control_room_med":3,"cosmoteer.engine_room":2},"thrust":{"cosmoteer.thruster_small":400.0,"cosmoteer.thruster_small_2way":400.0,"cosmoteer.thruster_large":3600.0,"cosmoteer.thruster_huge":8000.0,"cosmoteer.thruster_med":1300.0,"cosmoteer.thruster_small_3way":400.0,"cosmoteer.thruster_boost":3600.0},"mass_extra":{"cosmoteer.thermal_dilation_pump":4.0,"cosmoteer.resonance_beam_turret":16.0,"cosmoteer.heat_pipe_adaptive_structure":1.0,"cosmoteer.heat_pipe_adaptive":1.0,"cosmoteer.factory_thermal":9.0,"cosmoteer.heat_pipe_crossing":1.0,"cosmoteer.radiator":3.0,"cosmoteer.heat_exchanger":1.0,"cosmoteer.thermal_battery":4.0,"cosmoteer.thermal_amplification_pump":3.0}};
+const partMass=id=>{ const d=PARTS[id]; return (d&&typeof d.m==="number")?d.m:(RULES_STATS.mass_extra[id]||0); };
+// Top speed (LinearDrag in base_ship.rules): drag per second is 0.4*v below 75 m/s ("MinDampingCoefficient 40%")
+// and C*v^3 above it (the two meet at 75 m/s), so top speed is where forward thrust / mass equals that drag.
+// Thrusters within 1 tile of an engine room get +50% (its Engine GridBuffProvider); overclocked thrusters use their overclock thrust.
+const DRAG_C=7.111111e-5, DRAG_LIN=0.4, DRAG_KNEE=75;
+const OC_THRUST={"cosmoteer.thruster_small":1600,"cosmoteer.thruster_med":3400,"cosmoteer.thruster_large":7200,"cosmoteer.thruster_huge":14000,"cosmoteer.thruster_boost":7200};
+function nearEngineRoom(p){ for(let i=-1;i<=p.w;i++) for(let j=-1;j<=p.h;j++){ if(i>=0&&i<p.w&&j>=0&&j<p.h) continue; if((i<0||i>=p.w)&&(j<0||j>=p.h)) continue;
+  const q=ship.cell.get(p.x+i,p.y+j); if(q&&q.id==="cosmoteer.engine_room") return true; } return false; }
+function shipSpeed(){
+  const k=((+(ship.d.FlightDirection??1))+7)%8, ang=k*Math.PI/4, fx=Math.sin(ang), fy=-Math.cos(ang); let F=0,m=0;
+  for(const p of ship.parts){ m+=partMass(p.id); let T=RULES_STATS.thrust[p.id]; if(!T) continue;
+    if(p.oc===1&&OC_THRUST[p.id]) T=OC_THRUST[p.id]; if(nearEngineRoom(p)) T*=1.5;
+    const d=[[0,-1],[1,0],[0,1],[-1,0]][p.rot]; F+=T*Math.max(0,d[0]*fx+d[1]*fy); }
+  if(!(m>0&&F>0)) return 0; const a=F/m;
+  return a/DRAG_LIN<=DRAG_KNEE ? a/DRAG_LIN : Math.cbrt(a/DRAG_C);
+}
+// Damage per second (not overclocked). Cannons and the disruptor are damage per shot / fire interval from the current rules;
+// the rest come from the ContestMath cosmo-shipbuilder table (Dec 2024). Railguns, missiles, chainguns, flak and the lance aren't counted yet.
+const WEAPON_DPS={"cosmoteer.cannon_med":833,"cosmoteer.cannon_large":1778,"cosmoteer.cannon_deck":6000,"cosmoteer.disruptor":200,
+  "cosmoteer.laser_blaster_small":667,"cosmoteer.laser_blaster_large":1778,"cosmoteer.ion_beam_emitter":2500};
+const shipDPS=()=>ship.parts.reduce((s,p)=>s+(WEAPON_DPS[p.id]||0),0);
+function renderInfoWidget(cost,noCost,mass,beds,need){
+  const el=$("wInfoBody"); if(!el) return; if(!ship||!ship.parts.length){ el.innerHTML='<dt>No ship yet</dt><dd></dd>'; return; }
+  const v=shipSpeed();
+  el.innerHTML=`<dt>Cost</dt><dd>${fmt(cost)}${noCost?"+":""}</dd><dt>Mass</dt><dd>${fmt(mass*1000)}</dd>`+
+    `<dt>Crew needed</dt><dd class="${need>beds?"warn":""}">${fmt(need)} / ${fmt(beds)} beds</dd>`+
+    `<dt>Max speed</dt><dd>${v?"≈ "+v.toFixed(1)+" m/s":"no forward thrust"}</dd>`+
+    `<dt>DPS</dt><dd>${shipDPS()?"≈ "+fmt(shipDPS()):"—"}</dd>`+
+    `<div class="sub">Speed counts forward thrust, engine rooms and overclocked thrusters against mass and the game’s drag. DPS counts lasers, cannons, disruptors and ion beams (not overclocked).</div>`;
+}
+let recent=[];
+function noteRecent(id){ if(!id||id==="door") return; recent=[id,...recent.filter(x=>x!==id)].slice(0,14); renderRecent(); }
+const iconCache=new Map();
+function blockIcon(id){
+  const key=id+matchMedia("(prefers-color-scheme: dark)").matches; if(iconCache.has(key)) return iconCache.get(key);
+  const S=68, c=document.createElement("canvas"); c.width=c.height=S; const x=c.getContext("2d"), cat=catOf(id), col=colorOf({id,cat}), [w,h]=fullSize(id);
+  const sc=(S-10)/Math.max(w,h,1), ox=(S-w*sc)/2, oy=(S-h*sc)/2;
+  x.lineWidth=2; x.strokeStyle=shade(col,-.35); x.fillStyle=cat==="structure"?"rgba(120,130,140,.35)":shade(col,.3);
+  if(SHAPES[id]){ x.beginPath(); shapePoints({id,x:0,y:0,rot:0,flip:false,w,h}).forEach(([px,py],i)=>{ const X=ox+px*sc, Y=oy+py*sc; i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.closePath(); x.fill(); x.stroke(); }
+  else { x.fillRect(ox,oy,w*sc,h*sc); x.strokeRect(ox+1,oy+1,w*sc-2,h*sc-2); }
+  const dot=(r,f)=>{ x.fillStyle=f; x.beginPath(); x.arc(S/2,S/2,r,0,7); x.fill(); };
+  if(/hyperdrive_(small|med|large)$/.test(id)){ x.fillStyle="#fff"; x.fillRect(ox,oy,w*sc,h*sc); x.strokeStyle="#BFC6CC"; x.strokeRect(ox+1,oy+1,w*sc-2,h*sc-2); dot(Math.min(w,h)*sc*.36,"#2F7BEA"); }
+  else if(id==="cosmoteer.heat_exchanger"){ x.fillStyle="#fff"; x.fillRect(ox,oy,w*sc,h*sc); x.strokeStyle="#BFC6CC"; x.strokeRect(ox+1,oy+1,w*sc-2,h*sc-2); dot(sc*.26,CAT.heat.color); }
+  else if(/roof_/.test(id)) dot(sc*.3,shade(col,.2));
+  else if(/heat_pipe/.test(id)){ x.strokeStyle=col; x.lineWidth=sc*.28; x.beginPath(); x.moveTo(ox,S/2); x.lineTo(ox+w*sc,S/2); x.stroke(); }
+  const url=c.toDataURL(); iconCache.set(key,url); return url;
+}
+function renderRecent(){
+  const el=$("recentList"); if(!el) return;
+  el.innerHTML=recent.length?recent.map(id=>`<button data-id="${esc(id)}" aria-pressed="${tool===id}" title="Place ${esc(pretty(id))}"><img src="${blockIcon(id)}" alt=""><span>${esc(pretty(id))}</span></button>`).join("")
+    :'<div class="empty">Blocks you place show up here for quick reuse.</div>';
+}
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
 function drawCross(){
@@ -801,14 +917,15 @@ function renderStats(){
   const d=ship.d, P=ship.parts;
   document.getElementById("sName").textContent=d.Name||"Unnamed ship";
   document.getElementById("sBy").textContent=(d.Author?"by "+d.Author+" · ":"")+(d.ShipRulesID||"")+(d.Version!=null?" · save v"+d.Version:"");
-  let cost=0,noCost=0,mass=0,crew=0; const by=new Map();
+  let cost=0,noCost=0,mass=0,crew=0,crewNeed=0; const by=new Map();
   for(const p of P){ const def=PARTS[p.id];
     if(def&&typeof def.c==="number") cost+=def.c*1000; else noCost++;
-    if(def&&typeof def.m==="number") mass+=def.m;
-    crew+=CREW_CAP[p.id]||0;
+    mass+=partMass(p.id);
+    crew+=CREW_CAP[p.id]||0; crewNeed+=RULES_STATS.crew[p.id]||0;
     const e=by.get(p.id)||{n:0,cat:p.cat,c:def&&def.c}; e.n++; by.set(p.id,e); }
   const b=ship.bounds, heat=P.filter(p=>p.cat==="heat").length;
-  const st=[["Parts",fmt(P.length)],["Cost (credits)",fmt(cost)+(noCost?"+":"")],["Crew capacity",fmt(crew)],["Crew required",null],
+  renderInfoWidget(cost,noCost,mass,crew,crewNeed);
+  const st=[["Parts",fmt(P.length)],["Cost (credits)",fmt(cost)+(noCost?"+":"")],["Crew capacity",fmt(crew)],["Crew required",fmt(crewNeed)],
             ["Footprint",P.length?`${b.maxX-b.minX} × ${b.maxY-b.minY}`:"—"],["Mass",fmt(mass*1000)],["Heat parts",fmt(heat)],["Overclocked",fmt(P.filter(p=>p.oc===1).length)],["Doors",fmt(ship.doors.length)]];
   document.getElementById("stats").innerHTML=st.map(([k,v])=>`<div><dt>${k}</dt><dd class="${v==null?"na":"num"}">${v==null?"Needs game data":v}</dd></div>`).join("");
   const notes=[], mods=new Set(P.filter(p=>!p.id.startsWith("cosmoteer.")).map(p=>p.id.split(".")[0]));
@@ -1029,6 +1146,54 @@ $("silRot").onclick=()=>{ sil.turns=(sil.turns+2)%8; sil.rot=rotatedCanvas(); si
 $("silClose").onclick=()=>{ sil.on=false; $("sil").hidden=true; draw(); };
 
 // ---------- loading ----------
+// ---- JSON import / export ----
+// Export: the decoded ship in the usual layout (Parts, Doors, Name, FlightDirection…; bytes as hex) so other tools can read it,
+// plus a lossless packed copy in "_drydock" that Drydock uses to restore everything else.
+const toB64=u8=>{ let s=""; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); };
+const fromB64=s=>{ const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; };
+async function shipJSONText(){
+  const {tree,name}=await buildSaveTree(); const raw=rawEncode(tree).bytes(), d=parseTree(raw);
+  const out={...d,_drydock:{format:"drydock-ship",version:1,note:"Parts, Doors, Name and FlightDirection can be edited; everything else is restored from tree.",tree:toB64(raw)}};
+  const hex=v=>[...v].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase();
+  return {name,text:JSON.stringify(out,(k,v)=>v instanceof Uint8Array?hex(v):v,ship.parts.length<20000?2:0)};
+}
+const pick=(o,...ks)=>{ if(o) for(const k of ks) if(o[k]!==undefined) return o[k]; };
+function applyLoaded(d,tree,orig){
+  sil.on=false; $("sil").hidden=true;
+  ship=buildModel(d); ship.tree=tree; ship.orig=orig;
+  dirty=false; undoS=[]; redoS=[]; sel=-1; cancelTool(true); mirrorReset(); $("shipName").value=d.Name||""; $("front").value=String(d.FlightDirection??1); editUI("");
+  $("empty").style.display="none"; renderStats(); fit();
+}
+function showLoadError(label,e){ console.error(e);
+  if(ship){ editMsg(`Couldn’t open ${label||"that"}: ${e.message}`,true); return; }
+  $("empty").style.display="grid"; $("empty").innerHTML=`<div><strong>Couldn’t open ${esc(label||"that file")}</strong>${esc(e.message)}</div>`; }
+function parseShipJSON(text){
+  let o; try{ o=JSON.parse(text); }catch(e){ throw new Error("That isn’t valid JSON ("+e.message+")."); }
+  if(o && !pick(o,"Parts","parts") && o.ship) o=o.ship;
+  const partsIn=pick(o,"Parts","parts"); if(!Array.isArray(partsIn)) throw new Error("No parts list found. Expected a “Parts” array of parts with ID, Location and Rotation.");
+  const parts=partsIn.map((p,i)=>{ const loc=pick(p,"Location","location")||[pick(p,"x","X"),pick(p,"y","Y")], id=pick(p,"ID","id","Id");
+    if(typeof id!=="string"||!Array.isArray(loc)||!Number.isFinite(+loc[0])||!Number.isFinite(+loc[1])) throw new Error(`Part ${i+1} is missing its ID or Location.`);
+    return {ID:id,Location:[Math.round(+loc[0]),Math.round(+loc[1])],Rotation:((pick(p,"Rotation","rotation","rot")|0)%4+4)%4,FlipX:!!pick(p,"FlipX","flipX","flip")}; });
+  const dIn=pick(o,"Doors","doors"), doors=Array.isArray(dIn)?dIn.map(x=>{ const c=pick(x,"Cell","cell")||[pick(x,"x"),pick(x,"y")]; return {Cell:[Math.round(+c[0]),Math.round(+c[1])],ID:pick(x,"ID","id")||"cosmoteer.door",Orientation:pick(x,"Orientation","orientation","o")?1:0}; }):[];
+  let tree=null, orig=new Set(); const dd=o._drydock;
+  if(dd && typeof dd.tree==="string"){ const raw=fromB64(dd.tree); tree=rawParse(raw); const base=parseTree(raw); if(Array.isArray(base.Parts)) orig=new Set(base.Parts.map(pkey)); }
+  for(const p of parts){ const k=pkey(p); if(orig.has(k)) p._o=k; }
+  if(tree) readOverclock(tree,parts);
+  const rc=o.RoofBaseColor;
+  return {d:{Name:pick(o,"Name","name")??"Imported ship",Author:pick(o,"Author","author")||"",ShipRulesID:pick(o,"ShipRulesID")||"cosmoteer.terran",Version:pick(o,"Version")??3,
+    FlightDirection:+(pick(o,"FlightDirection","flightDirection")??1),Parts:parts,Doors:doors,RoofBaseColor:Array.isArray(rc)&&typeof rc[0]==="number"?rc:[1,1,1,.5]},tree,orig};
+}
+function loadShipJSON(text,label){ try{ const {d,tree,orig}=parseShipJSON(text); applyLoaded(d,tree,orig); return true; }catch(e){ showLoadError(label,e); return false; } }
+async function fetchShip(url){
+  let res; try{ res=await fetch(url); }catch(e){ throw new Error("Couldn’t reach that link. The site may not allow other pages to download from it, or this page can’t reach other sites. Download the file and open it instead."); }
+  if(!res.ok) throw new Error(`The link answered with an error (${res.status}).`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); return true; }catch{}
+  const ta=document.createElement("textarea"); ta.value=text; ta.style.cssText="position:fixed;opacity:0;top:0;left:0"; document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok=document.execCommand("copy"); }catch{} ta.remove(); return ok;
+}
 async function loadBuffer(buf,label){
   try{
     const {d,tree}=await extractShip(buf);
@@ -1050,7 +1215,7 @@ document.getElementById("file").addEventListener("change",async e=>{ const f=e.t
 
 ["dragenter","dragover"].forEach(t=>stage.addEventListener(t,e=>{e.preventDefault(); stage.classList.add("dropping");}));
 ["dragleave","drop"].forEach(t=>stage.addEventListener(t,e=>{e.preventDefault(); stage.classList.remove("dropping");}));
-stage.addEventListener("drop",async e=>{ const f=e.dataTransfer.files[0]; if(f) loadBuffer(await f.arrayBuffer(),f.name); });
+stage.addEventListener("drop",async e=>{ const f=e.dataTransfer.files[0]; if(!f) return; if(/\.json$/i.test(f.name)||f.type==="application/json") loadShipJSON(await f.text(),f.name); else loadBuffer(await f.arrayBuffer(),f.name); });
 const setMode=m=>{ mode=m; document.getElementById("mInt").setAttribute("aria-pressed",m==="interior"); document.getElementById("mExt").setAttribute("aria-pressed",m==="exterior"); draw(); };
 document.getElementById("mInt").onclick=()=>setMode("interior");
 document.getElementById("mExt").onclick=()=>setMode("exterior");
@@ -1100,7 +1265,7 @@ function lockSil(){ if(sil.on){ sil.on=false; $("sil").hidden=true; editMsg("Sil
 const snap=()=>({P:ship.d.Parts,D:ship.d.Doors});
 function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length>200) undoS.shift(); redoS=[]; if(next) ship.d.Parts=next; if(doors) ship.d.Doors=doors; lockSil(); rebuild(); if(msg!==undefined) editMsg(msg); }
 function editMsg(m,warn){ $("editMsg").className="msg"+(warn?" warn":""); $("editMsg").textContent=m||""; }
-function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=!(ship&&ship.parts.length); hint(); }
+function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=$("saveJson").disabled=$("copyJson").disabled=!(ship&&ship.parts.length); hint(); }
 function hint(){
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } const sr=$("smRow"); if(sr){ sr.hidden=!(op&&op.id==="cosmoteer.shield_gen_small"&&op.oc===1); if(op) $("smSel").value=String(op.sm===1?1:0); } }
   const h=$("hint"); if(!ship&&!tool){ h.innerHTML=""; return; }
@@ -1148,7 +1313,7 @@ function placeGhost(){
   const add=[mk(ghost.id,ghost.x,ghost.y,ghost.rot)]; if(ghost.twin) add.push(mk(ghost.id,ghost.twin.x,ghost.twin.y,ghost.twin.rot,!!ghost.twin.flip));
   if(pasteOC!==undefined && OC_PARTS.has(ghost.id)) for(const a of add) a.OC=pasteOC;
   const n=replacedModules(ghost);
-  commit(editParts(ship.d.Parts,[],add), n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); ghost=null;
+  commit(editParts(ship.d.Parts,[],add), n?`Replaced ${n} module${n>1?"s":""}; leftover tiles became corridor.`:""); noteRecent(ghost.id); ghost=null;
 }
 function selectTool(id){
   if(tool===id){ cancelTool(); return; }
@@ -1206,7 +1371,7 @@ function redo(){ if(!redoS.length) return; undoS.push(snap()); const s=redoS.pop
 
 // palette
 const PAL_IDS=Object.keys(PARTS).filter(id=>id!=="cosmoteer.door");
-function renderPalette(){
+function renderPalette(){ if(typeof renderRecent==="function"&&$("recentList")) renderRecent();
   const q=$("palQ").value.toLowerCase().trim(), groups=new Map();
   for(const id of PAL_IDS){ const name=pretty(id); if(q && !name.includes(q) && !id.includes(q)) continue;
     const c=catOf(id); if(!groups.has(c)) groups.set(c,[]); groups.get(c).push(id); }
@@ -1234,6 +1399,14 @@ $("rotBtn").onclick=()=>{ if(tool==="door") return; if(tool){ toolRot=(toolRot+1
 $("delBtn").onclick=()=>{ if(selDoor>=0) removeDoorSel(); else if(sel>=0) removeSel(); else editMsg("Click a part or door first, then delete.",true); };
 // About dialog
 const about=$("about"); $("aboutBtn").onclick=()=>about.showModal(); $("aboutLink").onclick=e=>{ e.preventDefault(); about.showModal(); }; $("aboutClose").onclick=()=>about.close();
+for(const h of document.querySelectorAll(".wid header")) h.addEventListener("click",e=>{ if(e.target.closest("#recentDock")) return; h.closest(".wid").classList.toggle("collapsed"); stage.classList.toggle("recent-collapsed",$("wRecent").classList.contains("collapsed")); });
+$("recentDock").addEventListener("click",e=>{ e.stopPropagation(); const w=$("wRecent"), bottom=!w.classList.contains("bottom");
+  if(bottom){ stage.appendChild(w); w.classList.add("bottom"); } else { $("dock").appendChild(w); w.classList.remove("bottom"); }
+  stage.classList.toggle("recent-bottom",bottom); const b=$("recentDock"); b.textContent=bottom?"⤒":"⤓"; b.title=bottom?"Dock on the right":"Dock along the bottom"; b.setAttribute("aria-label",b.title); });
+for(const el of [$("dock"),$("wRecent")]) for(const ev of ["pointerdown","pointerup","pointermove","wheel","contextmenu","dblclick"]) el.addEventListener(ev,e=>e.stopPropagation(),{passive:true});
+$("recentList").addEventListener("click",e=>{ const b=e.target.closest("button[data-id]"); if(b){ selectTool(b.dataset.id); renderRecent(); } });
+renderRecent();
+renderInfoWidget();
 const keys=$("keys"); $("keysBtn").onclick=()=>keys.showModal(); $("keysClose").onclick=()=>keys.close(); keys.addEventListener("click",e=>{ if(e.target===keys) keys.close(); });
 about.addEventListener("click",e=>{ if(e.target===about) about.close(); });
 // warn before leaving with unsaved changes
@@ -1317,10 +1490,7 @@ function rewriteRefs(tree,byOrig,orig){
   for(const ent of tree.e){ if(["Parts","Doors","Roles"].includes(ent[0])||ent[1].T!==2) continue;
     ent[1].a=ent[1].a.filter(walk); if(!ent[1].a.length) ent[1]=N.unset(); }
 }
-async function saveShip(){
-  if(!ship||!ship.parts.length) return;
-  const btn=$("saveShip"); btn.disabled=true; editMsg("Building the ship file…");
-  try{
+async function buildSaveTree(){
     let tree;
     if(ship.tree){ tree=structuredClone(ship.tree);
       const byOrig=new Map(); for(const p of ship.d.Parts) if(p._o) byOrig.set(p._o,p);
@@ -1333,6 +1503,13 @@ async function saveShip(){
     setEntry(tree,"Doors",ship.d.Doors.length?{T:2,a:ship.d.Doors.map(d=>({T:3,e:[["Cell",N.loc(d.Cell[0],d.Cell[1])],["ID",N.str(d.ID||"cosmoteer.door")],["Orientation",intNode(d.Orientation|0)]]}))}:N.unset());
     const name=($("shipName").value||"Unnamed ship").replace(/[^\x20-\x7E]/g,"").trim()||"Unnamed ship";
     setEntry(tree,"Name",N.str(name)); setEntry(tree,"FlightDirection",intNode(+(ship.d.FlightDirection??1)));
+    return {tree,name};
+}
+async function saveShip(){
+  if(!ship||!ship.parts.length) return;
+  const btn=$("saveShip"); btn.disabled=true; editMsg("Building the ship file…");
+  try{
+    const {tree,name}=await buildSaveTree();
     const bmp=makeBitmap("interior");
     const blob=await writeShipPNG(tree,(x,w,h)=>{ x.fillStyle="#1B2834"; x.fillRect(0,0,w,h);
       const sc=Math.min((w-16)/ship.GW,(h-16)/ship.GH); x.imageSmoothingEnabled=sc<1;
@@ -1342,6 +1519,37 @@ async function saveShip(){
   finally{ editUI(); }
 }
 $("saveShip").onclick=saveShip;
+$("saveJson").onclick=async()=>{ if(!ship||!ship.parts.length) return; try{ editMsg("Building the JSON…"); const {name,text}=await shipJSONText();
+  editMsg(await offerFile(new Blob([text],{type:"application/json"}),name.replace(/[\\/:*?"<>|]/g,"_")+".json")); }catch(e){ console.error(e); editMsg("Couldn’t build the JSON: "+e.message,true); } };
+$("copyJson").onclick=async()=>{ if(!ship||!ship.parts.length) return; try{ const {text}=await shipJSONText();
+  if(await copyText(text)) editMsg("Ship JSON copied to the clipboard.");
+  else { openJsonDlg("copy",text); editMsg("Your browser blocked clipboard access; the JSON is selected in the window, press Ctrl+C to copy it."); } }catch(e){ console.error(e); editMsg("Couldn’t build the JSON: "+e.message,true); } };
+// import menu
+const impBtn=$("importBtn"), impMenu=$("importMenu");
+const closeImp=()=>{ impMenu.hidden=true; impBtn.setAttribute("aria-expanded","false"); };
+impBtn.onclick=e=>{ e.stopPropagation(); const open=impMenu.hidden; impMenu.hidden=!open; impBtn.setAttribute("aria-expanded",String(open)); if(open) impMenu.querySelector("button").focus(); };
+document.addEventListener("click",e=>{ if(!impMenu.hidden && !e.target.closest(".menu")) closeImp(); });
+impMenu.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeImp(); impBtn.focus(); } });
+function openJsonDlg(mode,text){
+  const copy=mode==="copy"; $("jsonTitle").textContent=copy?"Ship JSON":"Paste JSON";
+  $("jsonHelp").textContent=copy?"Select all and copy this JSON (Ctrl+C).":"Paste a ship’s JSON: from Drydock, or decoded-ship JSON from other Cosmoteer tools (a “Parts” list with ID, Location, Rotation).";
+  $("jsonText").value=text||""; $("jsonText").readOnly=copy; $("jsonGo").hidden=copy; $("jsonErr").textContent="";
+  $("jsonDlg").showModal(); $("jsonText").focus(); if(copy) $("jsonText").select();
+}
+impMenu.addEventListener("click",e=>{ const b=e.target.closest("button[data-imp]"); if(!b) return; closeImp(); const k=b.dataset.imp;
+  if(k==="png") $("file").click(); else if(k==="json") $("jsonFile").click(); else if(k==="paste") openJsonDlg("paste");
+  else { $("urlErr").textContent=""; $("urlDlg").showModal(); $("urlIn").focus(); } });
+$("jsonFile").addEventListener("change",async e=>{ const f=e.target.files[0]; if(f) loadShipJSON(await f.text(),f.name); e.target.value=""; });
+$("jsonClose").onclick=()=>$("jsonDlg").close(); $("urlClose").onclick=()=>$("urlDlg").close();
+$("jsonGo").onclick=()=>{ const txt=$("jsonText").value.trim(); if(!txt){ $("jsonErr").textContent="Paste some JSON first."; return; }
+  try{ const {d,tree,orig}=parseShipJSON(txt); applyLoaded(d,tree,orig); $("jsonDlg").close(); editMsg(`Imported ${d.Parts.length} parts from JSON.`); }catch(e){ $("jsonErr").textContent=e.message; } };
+$("urlGo").onclick=async()=>{ const url=$("urlIn").value.trim(); if(!/^https?:\/\//i.test(url)){ $("urlErr").textContent="Enter a full link starting with https://"; return; }
+  $("urlErr").textContent="Downloading…"; const label=decodeURIComponent(url.split(/[?#]/)[0].split("/").pop()||"that link");
+  try{ const u=await fetchShip(url);
+    if(u[0]===137&&u[1]===80&&u[2]===78&&u[3]===71){ $("urlDlg").close(); await loadBuffer(u.buffer,label); }
+    else { const {d,tree,orig}=parseShipJSON(new TextDecoder().decode(u)); applyLoaded(d,tree,orig); $("urlDlg").close(); }
+  }catch(e){ $("urlErr").textContent=e.message; } };
+$("urlIn").addEventListener("keydown",e=>{ if(e.key==="Enter") $("urlGo").click(); });
 renderPalette(); hint();
 stage.addEventListener("wheel",e=>{ e.preventDefault(); const r=stage.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
   const [gx,gy]=toGrid(mx,my); cam.s=Math.max(0.1,Math.min(120,cam.s*Math.exp(-e.deltaY*0.0015)));
