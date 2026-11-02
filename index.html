@@ -223,6 +223,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
       <div class="checks"><label><input type="checkbox" id="showZones" checked> Show no-build zones</label><label><input type="checkbox" id="showArcs" checked> Show shield arcs</label></div>
       <div class="ctl"><label for="wArcMode">Weapon arcs</label><select id="wArcMode"><option value="off">Off</option><option value="short">Short (direction only)</option><option value="full">Full range</option></select></div>
       <div class="checks" id="ocRow" hidden><label><input type="checkbox" id="ocChk"> Overclock this module <kbd>O</kbd></label></div>
+      <div class="ctl" id="netRow" hidden><span>Ion network</span><span id="netInfo" style="grid-column:2/4;font-size:13px"></span></div>
       <div class="ctl" id="aimRow" hidden><span>Ion aim</span><span style="grid-column:2/4;display:flex;gap:6px;flex-wrap:wrap"><button id="aimBtn">Aim…</button><button id="aimClear">Clear aim</button></span></div>
       <div class="ctl" id="smRow" hidden><label for="smSel">Shield mode</label><select id="smSel"><option value="0">Expanded (wider, longer)</option><option value="1">Hardened (narrower, stronger)</option></select></div>
       <input type="search" id="palQ" placeholder="Find a module…" aria-label="Find a module" autocomplete="off">
@@ -834,7 +835,7 @@ function ionNetwork(){
   const addIn=(k,v)=>{ if(!inputs.has(k)) inputs.set(k,[]); inputs.get(k).push({v}); };
   const tgtOf=i=>{ const q=aimTarget(i); return q?q.i:-1; };
   for(let i=0;i<N;i++){ const p=ship.parts[i], g=tgtOf(i); if(g<0) continue;
-    if(p.id==="cosmoteer.ion_beam_emitter"){ addIn(g,null); inputs.get(g)[inputs.get(g).length-1].v=1; feeds.add(i); }
+    if(p.id==="cosmoteer.ion_beam_emitter"){ if(!inputs.has(g)) inputs.set(g,[]); inputs.get(g).push({v:1,em:i}); feeds.add(i); }
     else if(IS_PRISM(p.id)){ inputs.has(g)||inputs.set(g,[]); inputs.get(g).push({from:i}); chained.add(i); } }
   const busy=new Set();
   const outOf=i=>{ if(out.has(i)) return out.get(i); if(busy.has(i)) return 0; busy.add(i);
@@ -845,7 +846,7 @@ function ionNetwork(){
     if(IS_PRISM(p.id)){ const v=outOf(i); if(!chained.has(i)) dps+=v*ION_EMITTER_DPS; }
     else if(p.id==="cosmoteer.ion_beam_emitter" && !feeds.has(i)) dps+=ION_EMITTER_DPS; }
   const counts=new Map([...inputs].map(([k,a])=>[k,a.length]));
-  return ship._ion={out,counts,dps};
+  return ship._ion={out,counts,dps,inputs,feeds,chained};
 }
 // Heat (Meltdown rules, Oct 2026): only overclocked parts make heat. Values are each part's OVERCLOCK heat per second at full load
 // (per-shot weapons divided by their fire interval). Radiators remove 1,100/s each (half if their exhaust tile is blocked).
@@ -867,7 +868,17 @@ function shipHeat(){
 const REC_CREW={"cosmoteer.cannon_large": 7.93, "cosmoteer.cannon_med": 3.22, "cosmoteer.chaingun": 9.0, "cosmoteer.chaingun_magazine": 2.0, "cosmoteer.control_room_large": 7.27, "cosmoteer.control_room_med": 3.13, "cosmoteer.control_room_small": 1.07, "cosmoteer.disruptor": 3.0, "cosmoteer.engine_room": 2.4, "cosmoteer.factory_diamond": 8.0, "cosmoteer.flak_cannon_large": 11.0, "cosmoteer.hyperdrive_beacon": 6.8, "cosmoteer.ion_beam_emitter": 7.0, "cosmoteer.laser_blaster_small": 2.07, "cosmoteer.mining_laser_small": 3.4, "cosmoteer.point_defense": 2.1, "cosmoteer.resonance_beam_turret": 11.0, "cosmoteer.sensor_array": 4.8, "cosmoteer.shield_gen_large": 2.8, "cosmoteer.shield_gen_small": 2.4, "cosmoteer.thruster_huge": 0.8, "cosmoteer.thruster_large": 0.4, "cosmoteer.thruster_med": 0.2, "cosmoteer.thruster_rocket_nozzle": 0.6, "cosmoteer.thruster_small": 0.06};
 const recCrewOf=id=>REC_CREW[id]??RULES_STATS.crew[id]??0;
 const shipRecCrew=()=>Math.ceil(ship.parts.reduce((s,p)=>s+recCrewOf(p.id),0)-1e-9);
-const shipDPS=()=>ship.parts.reduce((s,p)=>s+(p.id==="cosmoteer.ion_beam_emitter"?0:(WEAPON_DPS[p.id]||0)),0)+ionNetwork().dps;
+// Overclocked DPS where the rules give clean numbers (small laser: 200-damage bolts at 2.25x fire rate; medium cannon: 3-shot bursts every 1.8 s)
+const OC_DPS={"cosmoteer.laser_blaster_small":600,"cosmoteer.cannon_med":1250};
+const weaponDPS=p=>(p.oc===1&&OC_DPS[p.id])||WEAPON_DPS[p.id]||0;
+const shipDPS=()=>ship.parts.reduce((s,p)=>s+(p.id==="cosmoteer.ion_beam_emitter"?0:weaponDPS(p)),0)+ionNetwork().dps;
+// ion network helpers: the output prism a part ultimately feeds, and everything feeding a prism
+function ionTerminal(i){ const seen=new Set(); let k=i; for(;;){ if(seen.has(k)) return -1; seen.add(k); const tq=aimTarget(k); if(!tq||!IS_PRISM(tq.id)) return IS_PRISM(ship.parts[k].id)?k:-1; k=tq.i; } }
+function ionUpstream(i){ const n=ionNetwork(), seen=new Set(), em=[], pr=[];
+  const go=k=>{ if(seen.has(k)) return; seen.add(k); pr.push(k); for(const x of (n.inputs.get(k)||[])){ if(x.from!==undefined) go(x.from); else if(x.em!==undefined) em.push(x.em); } };
+  go(i); return {em,pr}; }
+function ionNetText(term){ const n=ionNetwork(), v=n.out.get(term)||0, u=ionUpstream(term);
+  return v? `≈ ${fmt(v*ION_EMITTER_DPS)} DPS (×${v.toFixed(2)} from ${u.em.length} emitter${u.em.length!==1?"s":""}, ${u.pr.length} prism${u.pr.length!==1?"s":""})` : "idle: nothing feeds it"; }
 function renderInfoWidget(cost,noCost,mass,beds,need){
   const el=$("wInfoBody"); if(!el) return; if(!ship||!ship.parts.length){ el.innerHTML='<dt>No ship yet</dt><dd></dd>'; return; }
   const v=shipSpeed();
@@ -1063,6 +1074,9 @@ function drawOverlays(){
   // ion aim lines (always shown) and, while aiming, the prisms you can pick
   for(let i=0;i<ship.parts.length;i++){ const tq=aimTarget(i); if(tq){ drawAimLine(partCenter(ship.parts[i]),partCenter(tq),i===sel); continue; } const ap=aimPoint(i); if(ap) drawAimPoint(partCenter(ship.parts[i]),ap,i===sel); }
   if(aimFrom>=0) for(const q of ship.parts) if(IS_PRISM(q.id)&&q.i!==aimFrom) box(q.x,q.y,q.w,q.h,"#E0483C",null,true);
+  // selected ion network: outline everything that feeds the output prism
+  if(sel>=0 && ship.parts[sel] && CAN_AIM(ship.parts[sel].id)){ const tm=ionTerminal(sel);
+    if(tm>=0){ const u=ionUpstream(tm); for(const k of [...u.em,...u.pr]){ const q=ship.parts[k]; if(q&&k!==sel) box(q.x,q.y,q.w,q.h,"#E0483C",null,true); } } }
   // multi-selection, selection box and group ghost
   for(const i of multi){ const q=ship.parts[i]; if(q){ const f=fullRect(q); box(f.x,f.y,f.w,f.h,acc,null,false); } }
   if(drag&&drag.kind==="box"&&drag.moved){ const [ax,ay]=toScreen(Math.min(drag.x0,drag.x1),Math.min(drag.y0,drag.y1)), [bx,by]=toScreen(Math.max(drag.x0,drag.x1),Math.max(drag.y0,drag.y1));
@@ -1442,6 +1456,8 @@ function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length
 function editMsg(m,warn){ $("editMsg").className="msg"+(warn?" warn":""); $("editMsg").textContent=m||""; }
 function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=$("saveJson").disabled=$("copyJson").disabled=!(ship&&ship.parts.length); hint(); }
 function hint(){
+  { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, nr=$("netRow"); if(nr){ const tm=op&&CAN_AIM(op.id)?ionTerminal(sel):-1;
+      nr.hidden=tm<0; if(tm>=0) $("netInfo").textContent=(tm===sel?"This is the output: ":"Feeds an output: ")+ionNetText(tm); } }
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, ar=$("aimRow"); if(ar){ const can=!!(op&&CAN_AIM(op.id)); ar.hidden=!can;
       if(can){ const has=!!(aimTarget(sel)||aimPoint(sel)); $("aimClear").hidden=!has; $("aimBtn").textContent=aimFrom>=0?"Click a target…":(has?"Re-aim…":"Aim…"); } } }
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, row=$("ocRow"); if(row){ row.hidden=!(op&&OC_PARTS.has(op.id)); if(op) $("ocChk").checked=op.oc===1; } const sr=$("smRow"); if(sr){ sr.hidden=!(op&&op.id==="cosmoteer.shield_gen_small"&&op.oc===1); if(op) $("smSel").value=String(op.sm===1?1:0); } }
@@ -1649,7 +1665,14 @@ stage.addEventListener("pointermove",e=>{
   tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${(()=>{ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip), c=weaponClear(p,a), cd=Math.round(c.clearArc*180/Math.PI); return cd<WEAPON_ARC[p.id].a?` (${cd}° clear)`:""; })()}${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); const op=p.id==="cosmoteer.shield_gen_large"?shieldOpenRuns(p.i,a):null; return `<br>shield arc ${op&&op.openArc<a.arc-1e-6?`${Math.round(op.openArc*180/Math.PI)}° open of ${Math.round(a.arc*180/Math.PI)}°`:`${Math.round(a.arc*1800/Math.PI)/10}°`}, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
   }
   if(di<0 && p && IS_PRISM(p.id)){ const n=ionNetwork(), v=n.out.get(p.i)||0, c=n.counts.get(p.i)||0;
-    tip.innerHTML+=`<br>ion beam ${c?`×${v.toFixed(2)} from ${c} beam${c>1?"s":""}`:"idle (nothing feeds it)"}${c>2?" (more than 2 inputs loses extra energy)":""}`; }
+    tip.innerHTML+=`<br>ion beam ${c?`×${v.toFixed(2)} from ${c} beam${c>1?"s":""}, ≈ ${fmt(v*ION_EMITTER_DPS)} DPS`:"idle (nothing feeds it)"}${c>2?" (more than 2 inputs loses extra energy)":""}`;
+    if(v && !n.chained.has(p.i)) tip.innerHTML+=`<br><b>Network output ${ionNetText(p.i)}</b>`;
+    else if(v){ const tm=ionTerminal(p.i); if(tm>=0) tip.innerHTML+=`<br>feeds a network: ${ionNetText(tm)}`; }
+    if(p.oc===1) tip.innerHTML+=`<br>overclocked (its overclock effect isn’t modelled yet)`; }
+  if(di<0 && p && p.id==="cosmoteer.ion_beam_emitter"){ const tm=ionTerminal(p.i);
+    tip.innerHTML+= tm>=0 ? `<br>feeds a prism network: ${ionNetText(tm)}` : `<br>≈ ${fmt(ION_EMITTER_DPS)} DPS${p.oc===1?" (overclocked; its overclock effect isn’t modelled yet)":""}`; }
+  else if(di<0 && p && WEAPON_DPS[p.id]){ const oc=p.oc===1;
+    tip.innerHTML+=`<br>≈ ${fmt(weaponDPS(p))} DPS${oc?(OC_DPS[p.id]?" overclocked":" (overclocked; its overclock effect isn’t modelled yet)"):""}`; }
   tip.style.display="block";
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
   tip.style.left=tx+"px"; tip.style.top=ty+"px";
