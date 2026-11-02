@@ -1,4 +1,4 @@
-# Drydock (Meltdown!)
+# Drydock (beta)
 
 A free, browser-based ship editor for **Cosmoteer: Starship Architect & Commander**. Open a ship `.png`, inspect it, rebuild it, or start a brand-new hull from any picture, then save it straight back into a file the game can load. Use the online link or save the .html and use offline!
 
@@ -13,7 +13,7 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 **View any ship**
 - Open a ship `.png` by dragging it in or using **Open ship…**
 - Interior and exterior views, with color-coded modules, doors, heat-pipe networks and slanted armor drawn at their real angles
-- Hover any module or door for details
+- Hover any module or door for details, including each weapon's DPS (overclocked where modelled) and, for ion prisms, the whole network's output DPS
 - Stats: part count, cost, crew needed and capacity, footprint, mass and overclocked modules
 - A collapsible **Ship info** card over the view: cost, mass, recommended crew vs. beds, estimated max speed, DPS, and heat made vs. cooled
 - A **Recent blocks** panel with block previews for quick reuse, docked on the right or along the bottom
@@ -105,6 +105,6 @@ Drydock builds on the work of others in the Cosmoteer community:
 - **Part sizes, costs and outlines:** the part table from [Helicophel/cosmoteer-ship-to-wikitext](https://github.com/Helicophel/cosmoteer-ship-to-wikitext) (MIT License, © franklin050187)
 - **Speed model hints, engine-room thrust and some weapon DPS values:** [ContestMath/cosmo-shipbuilder](https://github.com/ContestMath/cosmo-shipbuilder) (MIT License)
 - **Heat-era part geometry:** the vanilla part export from [0neye/Voidwright](https://github.com/0neye/Voidwright) (Apache License 2.0)
-- **No-build zones, shield and weapon arcs, and overclock data** are derived from Cosmoteer's own part rules files, via the [Rojamahorse/CosmoteerUpdates](https://github.com/Rojamahorse/CosmoteerUpdates) mirror
+- **Game data** (no-build zones, shield and weapon arcs, ranges, DPS, crew and recommended crew, speed, heat, overclock, prism math and part materials) is derived from Cosmoteer's own rules files, via the [Rojamahorse/CosmoteerUpdates](https://github.com/Rojamahorse/CosmoteerUpdates) mirror of the game's data (October 2026)
 
 Drydock is an unofficial fan project and is not affiliated with or endorsed by Walternate Realities. Cosmoteer is © Walternate Realities.
