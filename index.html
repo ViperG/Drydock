@@ -97,6 +97,10 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 #palQ{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 #hint{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px;pointer-events:none}
 #hint:empty{display:none}
+.selinfo{font-size:12.5px;line-height:1.45;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0 8px;overflow-wrap:anywhere}
+#restore{position:absolute;top:12px;left:12px;z-index:4;padding:10px 12px;max-width:min(320px,calc(100% - 24px));font-size:13.5px;gap:8px}
+#restore .acts{display:flex;gap:8px;margin-top:6px}
+@media (max-width:700px){ #dock{width:184px;top:8px;right:8px;bottom:8px} #hint{font-size:12px;padding:4px 8px;left:8px;bottom:8px;max-width:calc(100% - 16px)} .wid header{font-size:12.5px} }
 .menu{position:relative}
 .menuList{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);display:flex;flex-direction:column;padding:4px;z-index:30}
 .menuList button{border:0;border-radius:5px;text-align:left;padding:8px 10px;font-size:14px}
@@ -216,6 +220,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
     </section>
     <section class="sil" id="build">
       <h3>Edit</h3>
+      <div class="selinfo" id="selInfo" hidden></div>
       <div class="ctl"><label for="shipName">Ship name</label><input type="text" id="shipName" maxlength="60" placeholder="Unnamed ship"></div>
       <div class="ctl"><label for="area">Build area</label><select id="area"><option value="120">Vanilla (120 × 120)</option><option value="200">Larger Ships (200 × 200)</option><option value="1000">Huge Ships (1000 × 1000)</option></select></div>
       <div class="ctl"><label for="mirror">Mirror</label><select id="mirror"><option value="off">Off</option><option value="lr">Left ↔ right</option><option value="tb">Top ↔ bottom</option><option value="ne">↗ Diagonal (bottom-left to top-right)</option><option value="nw">↖ Diagonal (top-left to bottom-right)</option></select></div>
@@ -985,7 +990,8 @@ function placementsGhost(pl,ignore,dx,dy){
   for(const p of pl){ const [w,h]=footprint(p.ID,p.rot); g.cells.push({id:p.ID,x:p.x,y:p.y,w,h}); if(!inArea(p.x,p.y,w,h)) g.ok=false;
     for(let i=0;i<w;i++) for(let j=0;j<h;j++){ const q=ship.cell.get(p.x+i,p.y+j);
       if(q&&!ignore.has(q.i)&&!isHull(q.id)&&!isRoof(q.id)&&!isRoof(p.ID)) g.ok=false;
-      if(IS_PRISM(p.ID)&&!(q&&(q.id==="cosmoteer.structure"||ignore.has(q.i)))) g.ok=false; } }
+      if(IS_PRISM(p.ID)&&!(q&&(q.id==="cosmoteer.structure"||ignore.has(q.i)))) g.ok=false; }
+    if(g.ok&&zoneProblem({id:p.ID,x:p.x,y:p.y,w,h,rot:p.rot,hits:new Set()},[...ignore])) g.ok=false; }
   return g;
 }
 const mirroredPl=p=>{ const [w,h]=footprint(p.ID,p.rot), m=mirrorPart(p.ID,p.x,p.y,w,h,p.rot,p.flip); return (m.x===p.x&&m.y===p.y&&m.rot===p.rot&&m.flip===p.flip)?null:{ID:p.ID,x:m.x,y:m.y,rot:m.rot,flip:m.flip}; };
@@ -1013,9 +1019,24 @@ function pasteGhost(x,y){
   return placementsGhost(pl,new Set(),x,y);
 }
 function placeGroup(){
-  if(!groupGhost) return; if(!groupGhost.ok){ editMsg("Can’t place the group there: it would land on another module or leave the build area.",true); return; }
+  if(!groupGhost) return; if(!groupGhost.ok){ editMsg("Can’t place the group there: it would land on another module, block a no-build zone, or leave the build area.",true); return; }
   const adds=groupGhost.pl.map(q=>{ const n=mk(q.ID,q.x,q.y,q.rot,q.flip); if(q.src.OC!==undefined) n.OC=q.src.OC; if(q.src.SM!==undefined) n.SM=q.src.SM; return n; });
   commit(editParts(ship.d.Parts,[],adds),`Placed ${adds.length} parts.`);
+}
+// details for one part: used by the hover tooltip and the Edit panel (so touch screens can see them too)
+function partInfoHTML(p){ let h="";
+  const def=PARTS[p.id];
+  h=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${(()=>{ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip), c=weaponClear(p,a), cd=Math.round(c.clearArc*180/Math.PI); return cd<WEAPON_ARC[p.id].a?` (${cd}° clear)`:""; })()}${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); const op=p.id==="cosmoteer.shield_gen_large"?shieldOpenRuns(p.i,a):null; return `<br>shield arc ${op&&op.openArc<a.arc-1e-6?`${Math.round(op.openArc*180/Math.PI)}° open of ${Math.round(a.arc*180/Math.PI)}°`:`${Math.round(a.arc*1800/Math.PI)/10}°`}, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
+  if(IS_PRISM(p.id)){ const n=ionNetwork(), v=n.out.get(p.i)||0, c=n.counts.get(p.i)||0;
+    h+=`<br>ion beam ${c?`×${v.toFixed(2)} from ${c} beam${c>1?"s":""}, ≈ ${fmt(v*ION_EMITTER_DPS)} DPS`:"idle (nothing feeds it)"}${c>2?" (more than 2 inputs loses extra energy)":""}`;
+    if(v && !n.chained.has(p.i)) h+=`<br><b>Network output ${ionNetText(p.i)}</b>`;
+    else if(v){ const tm=ionTerminal(p.i); if(tm>=0) h+=`<br>feeds a network: ${ionNetText(tm)}`; }
+    if(p.oc===1) h+=`<br>overclocked (its overclock effect isn’t modelled yet)`; }
+  if(p.id==="cosmoteer.ion_beam_emitter"){ const tm=ionTerminal(p.i);
+    h+= tm>=0 ? `<br>feeds a prism network: ${ionNetText(tm)}` : `<br>≈ ${fmt(ION_EMITTER_DPS)} DPS${p.oc===1?" (overclocked; its overclock effect isn’t modelled yet)":""}`; }
+  else if(WEAPON_DPS[p.id]){ const oc=p.oc===1;
+    h+=`<br>≈ ${fmt(weaponDPS(p))} DPS${oc?(OC_DPS[p.id]?" overclocked":" (overclocked; its overclock effect isn’t modelled yet)"):""}`; }
+  return h;
 }
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
@@ -1346,7 +1367,7 @@ async function shipJSONText(){
   return {name,text:JSON.stringify(out,(k,v)=>v instanceof Uint8Array?hex(v):v,ship.parts.length<20000?2:0)};
 }
 const pick=(o,...ks)=>{ if(o) for(const k of ks) if(o[k]!==undefined) return o[k]; };
-function applyLoaded(d,tree,orig){
+function applyLoaded(d,tree,orig){ const rb=$("restore"); if(rb) rb.remove();
   sil.on=false; $("sil").hidden=true;
   ship=buildModel(d); ship.tree=tree; ship.orig=orig;
   dirty=false; undoS=[]; redoS=[]; sel=-1; cancelTool(true); mirrorReset(); $("shipName").value=d.Name||""; $("front").value=String(d.FlightDirection??1); editUI("");
@@ -1386,7 +1407,7 @@ async function loadBuffer(buf,label){
   try{
     const {d,tree}=await extractShip(buf);
     if(!d||!Array.isArray(d.Parts)) throw new Error("Ship data was read, but it has no parts list.");
-    sil.on=false; document.getElementById("sil").hidden=true;
+    sil.on=false; document.getElementById("sil").hidden=true; { const rb=$("restore"); if(rb) rb.remove(); }
     for(const p of d.Parts) p._o=pkey(p);
     readOverclock(tree,d.Parts); readAims(tree,d.Parts);
     ship=buildModel(d); ship.tree=tree; ship.orig=new Set(d.Parts.map(p=>p._o));
@@ -1410,6 +1431,7 @@ document.getElementById("mExt").onclick=()=>setMode("exterior");
 document.getElementById("fit").onclick=fit;
 
 // ---------- editor ----------
+const TOUCH=matchMedia("(pointer: coarse)").matches;
 let multi=new Set(), groupClip=null, groupGhost=null, pinch=null; const pointers=new Map(); // multi-select, copied group, touch pinch
 let clip=null, pasteOC, aimFrom=-1; // copy/paste buffer; aimFrom = part being aimed
 let tool=null, toolRot=0, sel=-1, ghost=null, drag=null, undoS=[], redoS=[], selDoor=-1, doorGhost=null, dirty=false;
@@ -1452,10 +1474,11 @@ function blankShip(){
 function rebuild(){ multi.clear(); const {d,tree,orig}=ship; ship=buildModel(d); ship.tree=tree; ship.orig=orig; renderStats(); draw(); editUI(); }
 function lockSil(){ if(sil.on){ sil.on=false; $("sil").hidden=true; editMsg("Silhouette locked in. Your edits are kept from here on."); } }
 const snap=()=>({P:ship.d.Parts,D:ship.d.Doors});
-function commit(next,msg,doors){ dirty=true; undoS.push(snap()); if(undoS.length>200) undoS.shift(); redoS=[]; if(next) ship.d.Parts=next; if(doors) ship.d.Doors=doors; lockSil(); rebuild(); if(msg!==undefined) editMsg(msg); }
+function commit(next,msg,doors){ dirty=true; scheduleAutosave(); undoS.push(snap()); if(undoS.length>200) undoS.shift(); redoS=[]; if(next) ship.d.Parts=next; if(doors) ship.d.Doors=doors; lockSil(); rebuild(); if(msg!==undefined) editMsg(msg); }
 function editMsg(m,warn){ $("editMsg").className="msg"+(warn?" warn":""); $("editMsg").textContent=m||""; }
 function editUI(){ $("undo").disabled=!undoS.length; $("redo").disabled=!redoS.length; $("saveShip").disabled=$("saveJson").disabled=$("copyJson").disabled=!(ship&&ship.parts.length); hint(); }
 function hint(){
+  { const si=$("selInfo"); if(si){ const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null; si.hidden=!op; if(op) si.innerHTML=partInfoHTML(op); } }
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, nr=$("netRow"); if(nr){ const tm=op&&CAN_AIM(op.id)?ionTerminal(sel):-1;
       nr.hidden=tm<0; if(tm>=0) $("netInfo").textContent=(tm===sel?"This is the output: ":"Feeds an output: ")+ionNetText(tm); } }
   { const op=(sel>=0&&ship&&ship.parts[sel])?ship.parts[sel]:null, ar=$("aimRow"); if(ar){ const can=!!(op&&CAN_AIM(op.id)); ar.hidden=!can;
@@ -1468,9 +1491,9 @@ function hint(){
   else if(aimFrom>=0) h.innerHTML=(ship&&ship.parts[aimFrom]&&IS_PRISM(ship.parts[aimFrom].id))?`Aiming: click a prism to chain to it, or any spot to aim there. <kbd>Esc</kbd> or right-click to cancel.`:`Aiming: click the prism to feed. <kbd>Esc</kbd> or right-click to cancel.`;
   else if(tool==="door") h.innerHTML=`Placing <b>doors</b>: click a wall between two rooms to add a door, or click a door to remove it. <kbd>Esc</kbd> or right-click to stop.${mir}`;
   else if(tool) h.innerHTML=`Placing <b>${esc(pretty(tool))}</b>: click to place, <kbd>R</kbd> rotate, <kbd>Esc</kbd> or right-click to stop.${mir}`;
-  else if(sel>=0 && ship.parts[sel]) h.innerHTML=`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move, <kbd>R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
+  else if(sel>=0 && ship.parts[sel]) h.innerHTML=TOUCH?`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move; use Rotate and Delete in the Edit panel. Tap empty space to deselect.${mir}`:`<b>${esc(pretty(ship.parts[sel].id))}</b> selected: drag to move, <kbd>R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
   else if(selDoor>=0) h.innerHTML=`Door selected: <kbd>Del</kbd> remove, <kbd>Esc</kbd> deselect.${mir}`;
-  else h.innerHTML=`Pick a module to place it, or click a part to select it. <kbd>Shift</kbd>+drag to select several. Drag empty space to pan. Press <kbd>?</kbd> for shortcuts.${mir}`;
+  else h.innerHTML=TOUCH?`Tap a module, then tap to place it. Tap a part to select it. Drag to pan, pinch to zoom.${mir}`:`Pick a module to place it, or click a part to select it. <kbd>Shift</kbd>+drag to select several. Drag empty space to pan. Press <kbd>?</kbd> for shortcuts.${mir}`;
 }
 // ghost for placing or moving, with its mirror twin
 function makeGhost(id,x,y,rot,ignore,noTwin,flip){
@@ -1582,7 +1605,7 @@ $("palQ").addEventListener("input",renderPalette);
 $("palQ").addEventListener("keydown",e=>{ if(e.key==="Enter"){ const b=$("pal").querySelector("button[data-id]"); if(b){ selectTool(b.dataset.id); $("palQ").blur(); } } });
 $("undo").onclick=undo; $("redo").onclick=redo;
 $("mirror").addEventListener("change",mirrorSetup);
-$("front").addEventListener("change",()=>{ if(!ship) return; ship.d.FlightDirection=+$("front").value; dirty=true; draw(); });
+$("front").addEventListener("change",()=>{ if(!ship) return; ship.d.FlightDirection=+$("front").value; dirty=true; scheduleAutosave(); draw(); });
 $("showZones").addEventListener("change",()=>draw());
 $("showArcs").addEventListener("change",()=>draw());
 $("wArcMode").addEventListener("change",()=>draw());
@@ -1591,7 +1614,7 @@ $("smSel").addEventListener("change",()=>setSM(+$("smSel").value));
 $("aimBtn").onclick=()=>{ if(sel<0||!ship.parts[sel]||!CAN_AIM(ship.parts[sel].id)) return; aimFrom=sel; tool=null; ghost=null; renderPalette(); hint(); draw(); };
 $("aimClear").onclick=()=>{ if(sel>=0) setAim(sel,-1); }; // setAim(-1) clears both the prism and the spot aim
 $("area").addEventListener("change",()=>{ $("silLimit").value=$("area").value; draw(); });
-$("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; renderStats(); } });
+$("shipName").addEventListener("input",()=>{ if(ship){ ship.d.Name=$("shipName").value; dirty=true; scheduleAutosave(); renderStats(); } });
 // on-screen rotate / delete (same as R and Delete)
 $("rotBtn").onclick=()=>{ if(tool==="door") return; if(tool){ toolRot=(toolRot+1)%4; if(ghost){ const [w,h]=footprint(tool,toolRot); ghost=makeGhost(tool,Math.round(ghost.x+ghost.w/2-w/2),Math.round(ghost.y+ghost.h/2-h/2),toolRot,[]); } draw(); }
   else if(sel>=0) rotateSel(); else editMsg("Select a part or pick a module first, then rotate.",true); };
@@ -1606,6 +1629,8 @@ for(const el of [$("dock"),$("wRecent")]) for(const ev of ["pointerdown","pointe
 $("recentList").addEventListener("click",e=>{ const b=e.target.closest("button[data-id]"); if(b){ selectTool(b.dataset.id); renderRecent(); } });
 renderRecent();
 renderInfoWidget();
+if(matchMedia("(max-width: 700px)").matches){ $("wInfo").classList.add("collapsed"); $("wRecent").classList.add("collapsed"); stage.classList.add("recent-collapsed"); }
+setTimeout(offerRestore,0);
 const keys=$("keys"); $("keysBtn").onclick=()=>keys.showModal(); $("keysClose").onclick=()=>keys.close(); keys.addEventListener("click",e=>{ if(e.target===keys) keys.close(); });
 about.addEventListener("click",e=>{ if(e.target===about) about.close(); });
 // warn before leaving with unsaved changes
@@ -1661,18 +1686,8 @@ stage.addEventListener("pointermove",e=>{
     tip.innerHTML=`<b>Door</b><br>between ${esc(nm(sides[0]))} and ${esc(nm(sides[1]))}<br>${d.Orientation===1?"vertical":"horizontal"} wall at (${x}, ${y})`;
   } else {
   if(!p){ tip.style.display="none"; return; }
-  const def=PARTS[p.id];
-  tip.innerHTML=`<b>${esc(p.id)}</b><br>${CAT[p.cat].name}, ${p.w}×${p.h}, rotation ${p.rot*90}°${p.flip?", flipped":""}${p.oc===1?", overclocked":""}<br>at (${p.x}, ${p.y})${def&&typeof def.c==="number"?`, ${fmt(def.c*1000)} credits`:""}${WEAPON_ARC[p.id]?`<br>firing arc ${WEAPON_ARC[p.id].a}°${(()=>{ const a=weaponArc(p.id,p.x,p.y,p.rot,p.flip), c=weaponClear(p,a), cd=Math.round(c.clearArc*180/Math.PI); return cd<WEAPON_ARC[p.id].a?` (${cd}° clear)`:""; })()}${WEAPON_ARC[p.id].r?`, range ${WEAPON_ARC[p.id].r} m`:""}`:""}${SHIELD_ARC[p.id]?(()=>{ const a=shieldArc(p.id,p.x,p.y,p.rot,p.flip,p.oc,p.sm); const op=p.id==="cosmoteer.shield_gen_large"?shieldOpenRuns(p.i,a):null; return `<br>shield arc ${op&&op.openArc<a.arc-1e-6?`${Math.round(op.openArc*180/Math.PI)}° open of ${Math.round(a.arc*180/Math.PI)}°`:`${Math.round(a.arc*1800/Math.PI)/10}°`}, range ${a.r}`+(p.oc===1?(p.id==="cosmoteer.shield_gen_small"?(p.sm===1?" (hardened)":" (expanded)"):" (overclocked)"):""); })():""}`;
+  tip.innerHTML=partInfoHTML(p);
   }
-  if(di<0 && p && IS_PRISM(p.id)){ const n=ionNetwork(), v=n.out.get(p.i)||0, c=n.counts.get(p.i)||0;
-    tip.innerHTML+=`<br>ion beam ${c?`×${v.toFixed(2)} from ${c} beam${c>1?"s":""}, ≈ ${fmt(v*ION_EMITTER_DPS)} DPS`:"idle (nothing feeds it)"}${c>2?" (more than 2 inputs loses extra energy)":""}`;
-    if(v && !n.chained.has(p.i)) tip.innerHTML+=`<br><b>Network output ${ionNetText(p.i)}</b>`;
-    else if(v){ const tm=ionTerminal(p.i); if(tm>=0) tip.innerHTML+=`<br>feeds a network: ${ionNetText(tm)}`; }
-    if(p.oc===1) tip.innerHTML+=`<br>overclocked (its overclock effect isn’t modelled yet)`; }
-  if(di<0 && p && p.id==="cosmoteer.ion_beam_emitter"){ const tm=ionTerminal(p.i);
-    tip.innerHTML+= tm>=0 ? `<br>feeds a prism network: ${ionNetText(tm)}` : `<br>≈ ${fmt(ION_EMITTER_DPS)} DPS${p.oc===1?" (overclocked; its overclock effect isn’t modelled yet)":""}`; }
-  else if(di<0 && p && WEAPON_DPS[p.id]){ const oc=p.oc===1;
-    tip.innerHTML+=`<br>≈ ${fmt(weaponDPS(p))} DPS${oc?(OC_DPS[p.id]?" overclocked":" (overclocked; its overclock effect isn’t modelled yet)"):""}`; }
   tip.style.display="block";
   let tx=e.clientX-r.left+14, ty=e.clientY-r.top+14; if(tx+260>r.width) tx-=280; if(ty+70>r.height) ty-=90;
   tip.style.left=tx+"px"; tip.style.top=ty+"px";
@@ -1686,7 +1701,7 @@ stage.addEventListener("pointerup",e=>{
     if(multi.size===1){ sel=[...multi][0]; multi.clear(); }
     drag=null; hint(); draw(); return; }
   if(drag&&drag.kind==="gmove"){
-    if(drag.moved&&groupGhost){ if(!groupGhost.ok) editMsg("Can’t move the group there: it would land on another module or leave the build area.",true); else if(groupGhost.dx||groupGhost.dy) moveGroup(groupGhost); }
+    if(drag.moved&&groupGhost){ if(!groupGhost.ok) editMsg("Can’t move the group there: it would land on another module, block a no-build zone, or leave the build area.",true); else if(groupGhost.dx||groupGhost.dy) moveGroup(groupGhost); }
     groupGhost=null; drag=null; draw(); return; }
   if(drag&&drag.kind==="move"&&drag.moved&&ghost){ const p=ship.parts[drag.i];
     if(!ghost.ok) editMsg(ghostWhy(ghost,"move it"),true);
@@ -1764,6 +1779,20 @@ async function saveShip(){
   finally{ editUI(); }
 }
 $("saveShip").onclick=saveShip;
+// ---- auto-save: keep the ship you're editing in this browser, and offer to restore it next time ----
+const AUTOSAVE_KEY="drydock-autosave-v1"; let autoT=null;
+function scheduleAutosave(){ clearTimeout(autoT); autoT=setTimeout(async()=>{ if(!ship||!ship.parts.length) return;
+  try{ const {tree}=await buildSaveTree(), raw=rawEncode(tree).bytes(), d=parseTree(raw);
+    const text=JSON.stringify({...d,_drydock:{format:"drydock-ship",version:1,tree:toB64(raw)}},(k,v)=>v instanceof Uint8Array?undefined:v);
+    localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({t:Date.now(),name:ship.d.Name||"Unnamed ship",parts:ship.parts.length,text})); }catch(e){} },2000); }
+function offerRestore(){
+  let s=null; try{ s=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)||"null"); }catch{} if(!s||!s.text||ship) return;
+  const el=document.createElement("div"); el.id="restore"; el.className="wid";
+  el.innerHTML=`<div><b>Restore your last ship?</b><br>${esc(s.name)}, ${fmt(s.parts)} parts, saved ${esc(new Date(s.t).toLocaleString())}</div><div class="acts"><button class="primary" id="restoreGo">Restore</button><button id="restoreNo">Dismiss</button></div>`;
+  stage.appendChild(el); for(const ev of ["pointerdown","pointerup","pointermove","wheel"]) el.addEventListener(ev,e=>e.stopPropagation(),{passive:true});
+  $("restoreGo").onclick=()=>{ el.remove(); if(loadShipJSON(s.text,"your last ship")){ dirty=true; editMsg("Restored your last ship. Save it to keep a copy."); } };
+  $("restoreNo").onclick=()=>{ el.remove(); try{ localStorage.removeItem(AUTOSAVE_KEY); }catch{} };
+}
 $("saveJson").onclick=async()=>{ if(!ship||!ship.parts.length) return; try{ editMsg("Building the JSON…"); const {name,text}=await shipJSONText();
   editMsg(await offerFile(new Blob([text],{type:"application/json"}),name.replace(/[\\/:*?"<>|]/g,"_")+".json")); }catch(e){ console.error(e); editMsg("Couldn’t build the JSON: "+e.message,true); } };
 $("copyJson").onclick=async()=>{ if(!ship||!ship.parts.length) return; try{ const {text}=await shipJSONText();
