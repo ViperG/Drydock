@@ -1,4 +1,4 @@
-# Drydock (Meltdown!)
+# Drydock Meltdown!
 
 A free, browser-based ship editor for **Cosmoteer: Starship Architect & Commander**. Open a ship `.png`, inspect it, rebuild it, or start a brand-new hull from any picture, then save it straight back into a file the game can load. Use the online link or save the .html and use offline!
 
@@ -85,7 +85,7 @@ That's a complete offline ship editor. It works without an internet connection; 
 
 On touchscreens, the **Rotate** and **Delete** buttons in the Edit panel do the same job.
 
-## Known limits (beta)
+## Known limits
 
 - The thermal canister missile factory's price (18,000) is worked out from its materials; other factories cost a few percent more in game, so it may be slightly low.
 - Recommended crew uses the game's own formula (required crew plus crew to carry power and ammo) for most parts; a few (deck cannon, large laser, missiles, railguns, factories, pumps, boost thruster, tractor beam) fall back to their minimum crew. Crew roles and priorities on loaded ships are kept but can't be edited.
