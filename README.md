@@ -4,7 +4,7 @@ A free, browser-based ship editor for **Cosmoteer: Starship Architect & Commande
 
 **[Open Drydock →](https://viperg.github.io/Drydock/)**
 
-Nothing to install, and nothing is uploaded: Drydock runs entirely in your browser, and your ship files never leave your computer.
+Your current ship auto-saves in your browser, so you can pick up where you left off. Nothing to install, and nothing is uploaded: Drydock runs entirely in your browser, and your ship files never leave your computer.
 
 ![Editing a ship in Drydock: mirrored placement, thruster exhaust zones, overclocked reactors and live stats](screenshot-editor.png)
 
@@ -13,7 +13,7 @@ Nothing to install, and nothing is uploaded: Drydock runs entirely in your brows
 **View any ship**
 - Open a ship `.png` by dragging it in or using **Open ship…**
 - Interior and exterior views, with color-coded modules, doors, heat-pipe networks and slanted armor drawn at their real angles
-- Hover any module or door for details, including each weapon's DPS (overclocked where modelled) and, for ion prisms, the whole network's output DPS
+- Hover (or tap) any module or door for details, including each weapon's DPS (overclocked where modelled) and, for ion prisms, the whole network's output DPS
 - Stats: part count, cost, crew needed and capacity, footprint, mass and overclocked modules
 - A collapsible **Ship info** card over the view: cost, mass, recommended crew vs. beds, estimated max speed, DPS, and heat made vs. cooled
 - A **Recent blocks** panel with block previews for quick reuse, docked on the right or along the bottom
