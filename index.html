@@ -444,10 +444,12 @@ function buildModel(d){
     return {id:p.ID, x:p.Location[0], y:p.Location[1], w, h, rot:r, flip:!!p.FlipX, cat:catOf(p.ID), known:!!def, oc:p.OC, sm:p.SM, i:parts_i++};
   });
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const p of parts){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h); }
+  for(const p of parts){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h);
+    for(const [cx,cy] of extraCells(p.id,p.x,p.y,p.rot,p.flip)){ minX=Math.min(minX,cx); minY=Math.min(minY,cy); maxX=Math.max(maxX,cx+1); maxY=Math.max(maxY,cy+1); } }
   if(!parts.length){ minX=minY=0; maxX=maxY=1; }
   const GW=maxX-minX, GH=maxY-minY, grid=new Int32Array(GW*GH);
-  parts.forEach((p,n)=>{ for(let i=0;i<p.w;i++) for(let j=0;j<p.h;j++){ const gx=p.x+i-minX, gy=p.y+j-minY; if(gx>=0&&gy>=0&&gx<GW&&gy<GH) grid[gy*GW+gx]=n+1; } });
+  parts.forEach((p,n)=>{ for(let i=0;i<p.w;i++) for(let j=0;j<p.h;j++){ const gx=p.x+i-minX, gy=p.y+j-minY; if(gx>=0&&gy>=0&&gx<GW&&gy<GH) grid[gy*GW+gx]=n+1; }
+    for(const [cx,cy] of extraCells(p.id,p.x,p.y,p.rot,p.flip)){ const gx=cx-minX, gy=cy-minY; if(gx>=0&&gy>=0&&gx<GW&&gy<GH) grid[gy*GW+gx]=n+1; } });
   const cell={ get:(x,y)=>{ const gx=x-minX, gy=y-minY; if(gx<0||gy<0||gx>=GW||gy>=GH) return undefined; const n=grid[gy*GW+gx]; return n?parts[n-1]:undefined; } };
   if(!Array.isArray(d.Doors)) d.Doors=[];
   const doors = d.Doors.filter(x=>x&&x.Cell);
@@ -639,7 +641,6 @@ function drawLattice(p){
 // shields: draw the base plus its emitter row as one block (the save file only stores the base)
 function fullRect(p){
   if(p.cat!=="shield") return p; const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip).filter(z=>z.o); if(!zs.length) return p;
-  if(ship&&ship.cell) for(const z of zs) for(let x=z.x0;x<z.x1;x++) for(let y=z.y0;y<z.y1;y++){ const q=ship.cell.get(x,y); if(q&&q.i!==p.i) return p; } // emitter row covered: draw the base only
   let x0=p.x,y0=p.y,x1=p.x+p.w,y1=p.y+p.h; for(const z of zs){ x0=Math.min(x0,z.x0); y0=Math.min(y0,z.y0); x1=Math.max(x1,z.x1); y1=Math.max(y1,z.y1); }
   return {x:x0,y:y0,w:x1-x0,h:y1-y0};
 }
@@ -1038,6 +1039,9 @@ function partInfoHTML(p){ let h="";
     h+=`<br>≈ ${fmt(weaponDPS(p))} DPS${oc?(OC_DPS[p.id]?" overclocked":" (overclocked; its overclock effect isn’t modelled yet)"):""}`; }
   return h;
 }
+// shields own their emitter row too: the extra tiles beyond the saved 2x2 base (rules Size 2x3, SaveRect 2x2)
+function extraCells(id,x,y,rot,flip){ if(catOf(id)!=="shield") return []; const out=[];
+  for(const z of zonesOf(id,x,y,rot,flip)) if(z.o) for(let cx=z.x0;cx<z.x1;cx++) for(let cy=z.y0;cy<z.y1;cy++) out.push([cx,cy]); return out; }
 function areaHalf(){ return (+document.getElementById("area").value||120)/2; }
 function inArea(x,y,w,h){ const a=areaHalf(); return x>=-a && y>=-a && x+w<=a && y+h<=a; }
 function drawCross(){
@@ -1501,7 +1505,9 @@ function makeGhost(id,x,y,rot,ignore,noTwin,flip){
   if(mirror.on && !noTwin){ const m=mirrorPart(id,x,y,w,h,rot,!!flip); if(!(m.x===x&&m.y===y&&m.rot===rot&&m.flip===!!flip)){ const [tw,th]=footprint(id,m.rot); g.twin={id,x:m.x,y:m.y,w:tw,h:th,rot:m.rot,flip:m.flip}; } }
   const T=g.twin, clash=!!T && x<T.x+T.w && T.x<x+w && y<T.y+T.h && T.y<y+h;
   g.ok=!clash&&inArea(x,y,w,h); g.hits=hitsOf(x,y,w,h,ignore,id);
-  if(T){ T.ok=!clash&&inArea(T.x,T.y,T.w,T.h); T.hits=hitsOf(T.x,T.y,T.w,T.h,ignore,id); }
+  const addExtra=(hh)=>{ for(const [cx,cy] of extraCells(id,hh.x,hh.y,hh.rot,!!hh.flip)){ if(!inArea(cx,cy,1,1)) hh.ok=false; const q=ship.cell.get(cx,cy); if(q&&!ignore.includes(q.i)&&!isRoof(q.id)) hh.hits.add(q.i); } };
+  addExtra(g);
+  if(T){ T.ok=!clash&&inArea(T.x,T.y,T.w,T.h); T.hits=hitsOf(T.x,T.y,T.w,T.h,ignore,id); addExtra(T); }
   for(const hh of [g,g.twin].filter(Boolean)){ const why=zoneProblem(hh,ignore); if(why){ hh.ok=false; hh.why=why; } }
   if(IS_PRISM(id)) for(const hh of [g,g.twin].filter(Boolean)) if(!prismOnStructure(hh,ignore)){ hh.ok=false; hh.why="prisms must sit on plain structure on all 4 tiles"; }
   if(g.twin && !g.twin.ok) g.ok=false; if(g.twin && !g.ok) g.twin.ok=false;
@@ -1515,7 +1521,7 @@ const mk=(id,x,y,rot,flip,o)=>{ const p={ID:id,Location:[x,y],Rotation:rot,FlipX
 // and the tiles the new part doesn't cover become structure. Deleting a module leaves structure;
 // deleting structure or armor leaves empty space.
 const isHull=id=>{ const c=catOf(id); return id==="cosmoteer.corridor"||c==="structure"||c==="armor"; };
-function cellsOf(p){ const [w,h]=footprint(p.ID,p.Rotation|0), out=[]; for(let i=0;i<w;i++) for(let j=0;j<h;j++) out.push([p.Location[0]+i,p.Location[1]+j]); return out; }
+function cellsOf(p){ const [w,h]=footprint(p.ID,p.Rotation|0), out=[]; for(let i=0;i<w;i++) for(let j=0;j<h;j++) out.push([p.Location[0]+i,p.Location[1]+j]); return out.concat(extraCells(p.ID,p.Location[0],p.Location[1],(p.Rotation|0)%4,!!p.FlipX)); }
 function hitsOf(x,y,w,h,ignore,id){ const s=new Set(); if(isRoof(id)) return s;
   for(let i=0;i<w;i++) for(let j=0;j<h;j++){ const q=ship.cell.get(x+i,y+j); if(q && !ignore.includes(q.i) && !isRoof(q.id)) s.add(q.i); } return s; }
 function editParts(parts,rm,adds){
