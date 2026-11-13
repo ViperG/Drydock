@@ -97,6 +97,8 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 #palQ{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 #hint{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px;pointer-events:none}
 #hint:empty{display:none}
+.hdrtog{display:none}
+@media (max-width:700px){ .hdrtog{display:inline-block;margin-left:auto;padding:4px 12px;font-size:15px} header.mini{padding:6px 12px} header.mini .controls, header.mini h1 small, header.mini h1 .infolink{display:none} .pal{max-height:50vh} }
 .selinfo{font-size:12.5px;line-height:1.45;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0 8px;overflow-wrap:anywhere}
 #restore{position:absolute;top:12px;left:12px;z-index:4;padding:10px 12px;max-width:min(320px,calc(100% - 24px));font-size:13.5px;gap:8px}
 #restore .acts{display:flex;gap:8px;margin-top:6px}
@@ -172,6 +174,7 @@ kbd{font:600 11.5px "IBM Plex Sans",sans-serif;border:1px solid var(--line);bord
 <body>
 <header>
   <h1><span class="beta" title="Updated for the Meltdown update">Meltdown!</span>Drydock <small>Cosmoteer ship editor</small><button id="keysBtn" class="infolink">⌨ Shortcuts</button><button id="aboutBtn" class="infolink">ⓘ Notes &amp; credits</button></h1>
+  <button id="hdrToggle" class="hdrtog" aria-expanded="true" aria-label="Hide the top bar" title="Hide the top bar">▴</button>
   <div class="controls">
     <div class="seg" role="group" aria-label="View mode">
       <button id="mInt" aria-pressed="true">Interior</button>
@@ -456,7 +459,7 @@ function buildModel(d){
   let roof = Array.isArray(d.RoofBaseColor)?d.RoofBaseColor:null;
   const zoneAt=new Map(), zlist=[];
   for(const p of parts){ const zs=zonesOf(p.id,p.x,p.y,p.rot,p.flip); if(!zs.length) continue; zlist.push([p.i,zs]);
-    for(const z of zs) forCells(z,(cx,cy)=>{ const k=cx+","+cy; let a=zoneAt.get(k); if(!a) zoneAt.set(k,a=[]); a.push([p.i,z.tag]); }); }
+    for(const z of zs) forCells(z,(cx,cy)=>{ const k=cx+","+cy; let a=zoneAt.get(k); if(!a) zoneAt.set(k,a=[]); a.push([p.i,z.tag,z.o]); }); }
   return {d, parts, cell, grid, GW, GH, doors, roof, bounds:{minX,minY,maxX,maxY}, bmp:{}, zoneAt, zlist, spots:new Map(), wclear:new Map()};
 }
 
@@ -594,7 +597,9 @@ function zoneProblem(h,ignore){
   const skip=new Set([...ignore,...(h.hits||[])]), name=i=>pretty(ship.parts[i].id);
   for(const z of zonesOf(h.id,h.x,h.y,h.rot,false)){ let bad=-1;
     forCells(z,(cx,cy)=>{ if(bad>=0) return; const q=ship.cell.get(cx,cy); if(q && !skip.has(q.i) && pbOf(q.id).includes(z.tag)) bad=q.i; });
-    if(bad>=0) return `its ${zoneWord(h.id)} is blocked by ${name(bad)}`; }
+    if(bad>=0) return `its ${zoneWord(h.id)} is blocked by ${name(bad)}`;
+    if(z.o && z.tag==="default"){ let ov=-1; forCells(z,(cx,cy)=>{ if(ov>=0) return; const a=ship.zoneAt&&ship.zoneAt.get(cx+","+cy); if(a) for(const [o,tg,oo] of a) if(oo&&tg==="default"&&!skip.has(o)){ ov=o; break; } });
+      if(ov>=0) return `its turret or nozzle would overlap the ${name(ov)}’s`; } }
   const tags=pbOf(h.id);
   for(let i=0;i<h.w;i++) for(let j=0;j<h.h;j++){ const a=ship.zoneAt&&ship.zoneAt.get((h.x+i)+","+(h.y+j)); if(!a) continue;
     for(const [o,tag] of a) if(!skip.has(o) && tags.includes(tag)) return `it’s inside the ${zoneWord(ship.parts[o].id)} of ${name(o)}`; }
@@ -1635,6 +1640,8 @@ for(const el of [$("dock"),$("wRecent")]) for(const ev of ["pointerdown","pointe
 $("recentList").addEventListener("click",e=>{ const b=e.target.closest("button[data-id]"); if(b){ selectTool(b.dataset.id); renderRecent(); } });
 renderRecent();
 renderInfoWidget();
+{ const hdr=document.querySelector("header"), b=$("hdrToggle"); const setMini=m=>{ hdr.classList.toggle("mini",m); b.textContent=m?"▾":"▴"; b.setAttribute("aria-expanded",String(!m)); b.title=b.ariaLabel=m?"Show the top bar":"Hide the top bar"; try{ localStorage.setItem("drydock-header-mini",m?"1":"0"); }catch{} };
+  b.onclick=()=>setMini(!hdr.classList.contains("mini")); try{ if(localStorage.getItem("drydock-header-mini")==="1") setMini(true); }catch{} }
 if(matchMedia("(max-width: 700px)").matches){ $("wInfo").classList.add("collapsed"); $("wRecent").classList.add("collapsed"); stage.classList.add("recent-collapsed"); }
 setTimeout(offerRestore,0);
 const keys=$("keys"); $("keysBtn").onclick=()=>keys.showModal(); $("keysClose").onclick=()=>keys.close(); keys.addEventListener("click",e=>{ if(e.target===keys) keys.close(); });
