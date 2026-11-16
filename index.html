@@ -689,6 +689,15 @@ function mirrorPoint(x,y){ const c2=mirror.c2, c=mirror.c;
 const shapeKey=pts=>pts.map(([x,y])=>Math.round(x*100)+","+Math.round(y*100)).sort().join(";");
 function mirrorPart(id,x,y,w,h,rot,flip){
   const m=mirrorPos(x,y,w,h,rot); m.flip=!!flip;
+  // lopsided parts with nozzles / lanes (e.g. the 2-way thruster): pick the rotation whose zones are the true mirror image
+  if(!SHAPES[id] && ZONES[id]){
+    const sig=(px,py,r)=>{ const out=[]; for(const z of zonesOf(id,px,py,r,!!flip)){ const x1=Math.min(z.x1,z.x0+30), y1=Math.min(z.y1,z.y0+30);
+        for(let cx=z.x0;cx<x1;cx++) for(let cy=z.y0;cy<y1;cy++) out.push(cx+","+cy+","+z.tag); } return out; };
+    const mc=(cx,cy)=>{ const [a,b]=mirrorPoint(cx+.5,cy+.5); return [Math.round(a-.5),Math.round(b-.5)]; };
+    const target=new Set(sig(x,y,rot).map(k=>{ const [cx,cy,tg]=k.split(","), [a,b]=mc(+cx,+cy); return a+","+b+","+tg; }));
+    const fits=r=>{ const s=sig(m.x,m.y,r); return s.length===target.size && s.every(k=>target.has(k)); };
+    if(!fits(m.rot)) for(let r=0;r<4;r++){ const fa=footprint(id,r), fb=footprint(id,m.rot); if(fa[0]!==fb[0]||fa[1]!==fb[1]) continue; if(fits(r)) return {x:m.x,y:m.y,rot:r,flip:!!flip}; }
+    return m; }
   if(!SHAPES[id]) return m;
   const target=shapeKey(shapePoints({id,x,y,rot,flip:!!flip}).map(([px,py])=>mirrorPoint(px,py)));
   for(const f of FLIPPABLE.has(id)?[!!flip,!flip]:[!!flip]) for(let r=0;r<4;r++){
